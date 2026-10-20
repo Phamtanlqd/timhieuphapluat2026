@@ -12,7 +12,7 @@ const CFG = {
   RANK_CACHE_SEC: 15,
   EXAM_CACHE_SEC: 600,
   TINH_CA_BAN_THAN: true, // "bao nhiêu thí sinh cùng số câu đúng" có tính cả bản thân không
-  GIAI_TAP_THE: { ten: 'Giải Tập thể', tien: 0 }, // tien: 0 = không ghi số tiền (điền số tiền nếu có)
+  GIAI_TAP_THE: { ten: 'Giải Tập thể', tien: 1000000 }, // tien: 0 = không ghi số tiền (điền số tiền nếu có)
   TAP_THE_XEP_THEO: 'SO_LUONG',  // 'SO_LUONG' = lớp đông nhất | 'TY_LE' = tỷ lệ tham gia trên sĩ số
   DEFAULT_ADMIN_KEY: 'DOI-KHOA-NAY-NGAY', // nên đặt Script Property ADMIN_KEY thay thế
   GIAI: [
@@ -27,7 +27,7 @@ const S = { HS: 'HOC_SINH', DE: 'DE_THI', PHU: 'CAU_HOI_PHU', KQ: 'KET_QUA' };
 const ROUTES = {
   status: status_, login: login_, start: start_, submit: submit_, ranking: ranking_,
   admin_stats: adminStats_, admin_open: adminOpen_, admin_finalize: adminFinalize_,
-  admin_reset: adminReset_, admin_export: adminExport_, admin_refresh: adminRefresh_
+  admin_reset: adminReset_, admin_export: adminExport_, admin_refresh: adminRefresh_, admin_setkey: adminSetKey_
 };
 
 function doGet() { return out_({ ok: true, data: 'API hoạt động' }); }
@@ -333,4 +333,12 @@ function writeClassSheet_(list) {
   const head = ['Lop', 'SoHSThamGia', 'SiSo', 'TyLe(%)', 'TBSoCauDung', 'TBThoiGianGiay', 'XepHang', 'GiaiThuong'];
   const data = [head].concat(list.map(c => [c.lop, c.soHS, c.siSo, c.tyLe, c.tbDung, c.tbTg, c.hang, classPrize_(c.hang)]));
   sh.getRange(1, 1, data.length, head.length).setValues(data);
+}
+
+function adminSetKey_(r) {
+  admin_(r); // phải nhập đúng khóa hiện tại
+  const k = String(r.newKey || '').trim();
+  if (k.length < 8) throw new Error('Khóa mới phải có ít nhất 8 ký tự');
+  props_().setProperty('ADMIN_KEY', k);
+  return { changed: true };
 }

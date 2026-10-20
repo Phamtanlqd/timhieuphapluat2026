@@ -47,3 +47,12 @@ $('btnExport').onclick = async () => {
   XLSX.writeFile(wb, 'KetQua_PhapLuat_2026.xlsx');
 };
 if (KEY) enter();
+
+$('btnSetKey').onclick = async () => {
+  const a = $('newKey').value.trim(), b = $('newKey2').value.trim();
+  if (a.length < 8) return msg('Khóa mới phải có ít nhất 8 ký tự.', 'danger');
+  if (a !== b) return msg('Hai lần nhập khóa mới không khớp.', 'danger');
+  await call('admin_setkey', { newKey: a });
+  KEY = a; sessionStorage.setItem('adminKey', a); $('newKey').value = $('newKey2').value = '';
+  msg('Đã đổi khóa quản trị. Hãy ghi nhớ khóa mới.');
+};
