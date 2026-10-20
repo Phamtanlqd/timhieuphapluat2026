@@ -1,0 +1,135 @@
+:root {
+  --primary-color: #003366;
+  --secondary-color: #da251d;
+  --accent-gold: #ffcc00;
+  --bg-gradient: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+}
+
+body {
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f4f7f6;
+  color: #333;
+}
+
+.header-banner {
+  background: var(--bg-gradient);
+  color: white;
+  padding: 30px 15px;
+  border-bottom: 5px solid var(--accent-gold);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.card-custom {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  transition: all 0.3s ease;
+}
+
+.card-custom:hover {
+  transform: translateY(-3px);
+}
+
+.btn-gov {
+  background: var(--secondary-color);
+  color: white;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+}
+
+.btn-gov:hover {
+  background: #b31b14;
+  color: white;
+}
+
+.timer-badge {
+  font-size: 1.5rem;
+  font-weight: bold;
+  background: #fff3f3;
+  color: var(--secondary-color);
+  border: 2px solid var(--secondary-color);
+  padding: 8px 20px;
+  border-radius: 50px;
+}
+
+.question-card {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  border-left: 5px solid var(--primary-color);
+  margin-bottom: 15px;
+}
+
+.opt-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 18px;
+  margin-top: 8px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.opt-btn:hover {
+  border-color: var(--primary-color);
+  background: #f0f7ff;
+}
+
+.opt-btn.selected {
+  border-color: var(--primary-color);
+  background: #d0e7ff;
+  font-weight: bold;
+}
+
+.nav-q-btn {
+  width: 42px;
+  height: 42px;
+  margin: 3px;
+  border-radius: 8px;
+  font-weight: bold;
+}
+
+#certificate-print-area {
+  display: none;
+}
+
+@media print {
+  body * { visibility: hidden; }
+  #certificate-print-area, #certificate-print-area * { visibility: visible; }
+  #certificate-print-area {
+    position: absolute;
+    left: 0; top: 0; width: 100%;
+    display: block !important;
+  }
+}
+
+.cert-border {
+  width: 1000px;
+  height: 700px;
+  padding: 30px;
+  border: 15px solid #003366;
+  background: #fffdf7;
+  margin: auto;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.cert-inner-border {
+  border: 3px solid #ffcc00;
+  height: 100%;
+  padding: 30px;
+  text-align: center;
+  box-sizing: border-box;
+}
+/* ---- Bổ sung cho trang quản trị và thông báo ---- */
+:root{--ink:#0f172a;--muted:#64748b;--success:#10B981;--warning:#F59E0B;--danger:#EF4444}
+.card-fluent{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 2px 8px rgba(15,23,42,.05)}
+.pill{display:inline-flex;padding:.25rem .75rem;border-radius:999px;font-size:.85rem;font-weight:600}
+.pill.ok{background:#d1fae5;color:#047857}.pill.off{background:#fee2e2;color:#b91c1c}.pill.wait{background:#fef3c7;color:#b45309}
+.stat{padding:1rem 1.2rem}.stat .n{font-size:1.9rem;font-weight:800}
+.topbar{background:#fff;border-bottom:1px solid #e2e8f0}
