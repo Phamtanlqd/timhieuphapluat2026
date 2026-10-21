@@ -32,14 +32,17 @@ function begin(d) {
   if (ok) { layout = draft.layout; ans = draft.ans || {}; duDoan = draft.du || ''; }
   else { layout = shuffle(questions.map(q => ({ id: q.id, opts: shuffle(['A', 'B', 'C', 'D']) }))); ans = {}; duDoan = ''; save(); }
   endAt = Date.now() + d.remaining * 1000;      // thời gian còn lại do server tính
-  $('student-info-display').textContent = `Thí sinh: ${session.hs.hoTen} (${session.hs.lop})`;
+  $('student-info-display').textContent = `${session.hs.hoTen} · ${session.hs.lop}`;
+  document.body.classList.add('in-exam');
   show('section-exam'); active = true;
   renderNavGrid(); renderQuestion(0); tick(); timerId = setInterval(tick, 500);
 }
 
 function tick() {
   const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
-  $('exam-timer').textContent = fmtTime(left);
+  $('timer-text').textContent = fmtTime(left);
+  $('exam-timer').classList.toggle('warn', left <= 300 && left > 60);
+  $('exam-timer').classList.toggle('danger', left <= 60);
   if (left <= 0 && !submitting) submitExam(true);
 }
 
@@ -52,41 +55,51 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('beforeunload', e => { if (active) { e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- Hiển thị câu hỏi ---------- */
+const subOk = () => /^\d+$/.test(String(duDoan).trim());
 function renderNavGrid() {
   const grid = $('nav-grid'); grid.innerHTML = '';
   layout.forEach((l, i) => {
-    const b = el('button', 'btn nav-q-btn ' + (ans[l.id] ? 'btn-success text-white' : 'btn-outline-secondary') + (i === idx ? ' border-3 border-primary' : ''));
+    const b = el('button', 'nav-q-btn' + (ans[l.id] ? ' done' : '') + (i === idx ? ' current' : ''));
     b.type = 'button'; b.textContent = i + 1; b.onclick = () => renderQuestion(i); grid.appendChild(b);
   });
-  const sb = el('button', 'btn nav-q-btn w-100 mt-2 ' + (/^\d+$/.test(String(duDoan).trim()) ? 'btn-primary text-white' : 'btn-outline-primary'));
-  sb.type = 'button'; sb.textContent = 'Câu phụ'; sb.onclick = renderSubQuestion; grid.appendChild(sb);
+  const sb = el('button', 'nav-sub-btn' + (subOk() ? ' done' : '') + (idx === layout.length ? ' current' : ''));
+  sb.type = 'button'; sb.innerHTML = '<i class="fa-solid fa-circle-question me-2"></i>Câu hỏi phụ'; sb.onclick = renderSubQuestion; grid.appendChild(sb);
 }
+function choose(i, o) { const l = layout[i]; ans[l.id] = o; save(); renderQuestion(i); }
 function renderQuestion(i) {
   idx = i; const l = layout[i], q = byId[l.id], box = $('question-box'); box.innerHTML = '';
-  const card = el('div', 'question-card'), h = el('h5', 'fw-bold'), wrap = el('div', 'mt-3');
-  h.textContent = `Câu ${i + 1}: ${q.q}`;
+  const card = el('div', 'question-card'), tag = el('div', 'q-tag'), h = el('h5', 'q-title');
+  tag.textContent = `Câu ${i + 1} / ${layout.length}`; h.textContent = q.q;
+  card.append(tag, h);
   l.opts.forEach((o, k) => {
-    const b = el('button', 'opt-btn' + (ans[l.id] === o ? ' selected' : '')), s = el('b');
-    b.type = 'button'; s.textContent = 'ABCD'[k] + '.'; b.append(s, ' ' + q.o[o]);
-    b.onclick = () => { ans[l.id] = o; save(); renderNavGrid(); renderQuestion(i); };
-    wrap.appendChild(b);
+    const b = el('button', 'opt-btn' + (ans[l.id] === o ? ' selected' : '')), s = el('span', 'opt-letter'), t = el('span', 'opt-text'), c = el('i', 'fa-solid fa-circle-check opt-check');
+    b.type = 'button'; s.textContent = 'ABCD'[k]; t.textContent = q.o[o]; b.append(s, t, c);
+    b.onclick = () => choose(i, o);
+    card.appendChild(b);
   });
-  card.append(h, wrap); box.appendChild(card); renderNavGrid(); updateProgress();
+  box.appendChild(card); renderNavGrid(); updateProgress();
 }
 function renderSubQuestion() {
   idx = layout.length; const box = $('question-box'); box.innerHTML = '';
-  const card = el('div', 'question-card'), h = el('h5', 'fw-bold text-primary'), p = el('p', 'fs-6'), inp = el('input', 'form-control form-control-lg mt-3');
-  h.textContent = 'CÂU HỎI PHỤ DỰ ĐOÁN'; p.textContent = phuText;
-  inp.type = 'number'; inp.min = 0; inp.step = 1; inp.value = duDoan; inp.placeholder = 'Nhập một số nguyên (ví dụ: 125)';
+  const card = el('div', 'question-card'), tag = el('div', 'q-tag sub'), h = el('h5', 'q-title'), inp = el('input', 'form-control form-control-lg'), hint = el('div', 'small text-muted mt-2');
+  tag.innerHTML = '<i class="fa-solid fa-lightbulb me-1"></i>Câu hỏi phụ dự đoán'; h.textContent = phuText;
+  inp.type = 'number'; inp.min = 0; inp.step = 1; inp.value = duDoan; inp.placeholder = 'Nhập một số nguyên, ví dụ: 125'; inp.style.maxWidth = '320px';
   inp.oninput = () => { duDoan = inp.value; save(); renderNavGrid(); updateProgress(); };
-  card.append(h, p, inp); box.appendChild(card); renderNavGrid(); updateProgress();
+  hint.textContent = 'Chỉ nhập số nguyên không âm. Bỏ trống sẽ được tính là 0.';
+  card.append(tag, h, inp, hint); box.appendChild(card); renderNavGrid(); updateProgress();
 }
 const nextQuestion = () => idx < layout.length - 1 ? renderQuestion(idx + 1) : renderSubQuestion();
 const prevQuestion = () => { if (idx > 0) renderQuestion(idx - 1); };
 function updateProgress() {
-  const done = Object.keys(ans).length + (/^\d+$/.test(String(duDoan).trim()) ? 1 : 0);
-  $('exam-progress-bar').style.width = Math.round(done / (layout.length + 1) * 100) + '%';
+  const done = Object.keys(ans).length + (subOk() ? 1 : 0), tot = layout.length + 1, pct = Math.round(done / tot * 100);
+  $('exam-progress-bar').style.width = pct + '%'; $('answered-text').textContent = done + '/' + tot; $('pct-text').textContent = pct + '%';
 }
+document.addEventListener('keydown', e => {
+  if (!active || submitting || e.target.tagName === 'INPUT' || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'ArrowRight') nextQuestion();
+  else if (e.key === 'ArrowLeft') prevQuestion();
+  else if (idx < layout.length) { const k = 'abcd'.indexOf(e.key.toLowerCase()); if (k >= 0 && e.key.length === 1) choose(idx, layout[idx].opts[k]); }
+});
 
 /* ---------- Nộp bài ---------- */
 function confirmSubmit() {
@@ -103,7 +116,7 @@ async function submitExam(auto) {
   for (;;) {
     try {
       const r = await api('submit', { token: session.token, answers: ans, duDoan: du }, 4);
-      active = false; try { localStorage.removeItem(draftKey()); } catch {}
+      active = false; document.body.classList.remove('in-exam'); try { localStorage.removeItem(draftKey()); } catch {}
       $('r-dung').textContent = r.soCauDung; $('r-tong').textContent = r.tong; $('r-time').textContent = fmtTime(r.thoiGian);
       show('section-result'); window.scrollTo(0, 0); return;
     } catch (e) {
@@ -123,8 +136,8 @@ async function loadRankings() {
   try {
     const d = await api('ranking'); rankRows = d.rows; classRows = d.lop || []; renderClassBox();
     $('rank-badge').textContent = (d.finalized ? '✔ Kết quả chính thức' : '⏳ Kết quả tạm thời') + ` - ${d.total} bài đã nộp, hiển thị top ${d.rows.length}. Cập nhật ${new Date(d.updated).toLocaleTimeString('vi-VN')}`;
-    tbody.innerHTML = rankRows.map((r, i) => `<tr>
-      <td><span class="badge ${r.hang <= 3 ? 'bg-danger' : 'bg-secondary'} fs-6">${r.hang}</span></td>
+    tbody.innerHTML = rankRows.map((r, i) => `<tr class="${r.hang <= 3 ? 'top' + r.hang : ''}">
+      <td><span class="rank-chip ${r.hang <= 3 ? 'r' + r.hang : ''}">${r.hang}</span></td>
       <td><b>${esc(r.ma)}</b></td><td>${esc(r.hoTen)}</td><td>${esc(r.lop)}</td>
       <td><b class="text-success">${r.dung}/30</b></td><td>${r.tg}s</td><td>${r.du}</td>
       <td><span class="badge bg-warning text-dark fw-bold">${esc(r.giai || 'Chưa tính')}</span></td>
