@@ -6,6 +6,7 @@
   <title>TÌM HIỂU PHÁP LUẬT TRỰC TUYẾN 2026</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -13,9 +14,10 @@
   <!-- Header -->
   <header class="header-banner text-center">
     <div class="container">
-      <h3 class="text-warning fw-bold mb-1"><i class="fa-solid fa-scale-balanced me-2"></i>CUỘC THI TRỰC TUYẾN</h3>
+      <h3 class="text-warning fw-bold mb-1"><i class="fa-solid fa-scale-balanced me-2"></i>HỘI THI TRỰC TUYẾN</h3>
       <h1 class="fw-extrabold display-6">TÌM HIỂU PHÁP LUẬT NĂM 2026</h1>
       <p class="mb-0 text-light">TRƯỜNG THPT CHUYÊN LÊ QUÝ ĐÔN</p>
+      <div class="header-chips"><span><i class="fa-solid fa-list-check me-1"></i>30 câu trắc nghiệm</span><span><i class="fa-regular fa-clock me-1"></i>30 phút</span><span><i class="fa-solid fa-trophy me-1"></i>Giải cá nhân & tập thể</span></div>
     </div>
   </header>
 
@@ -60,35 +62,36 @@
 
     <!-- Section 2: Giao Diện Làm Bài Thi -->
     <div id="section-exam" class="d-none">
-      <div class="row">
-        <div class="col-md-9">
-          <div class="card card-custom p-4 mb-3">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <span id="student-info-display" class="fw-bold text-primary fs-5">Thí sinh: ...</span>
-              <span class="timer-badge" id="exam-timer">30:00</span>
+      <div class="row g-3">
+        <div class="col-lg-9">
+          <div class="exam-top mb-3">
+            <div class="d-flex justify-content-between align-items-center gap-3">
+              <div class="student-chip">
+                <div class="avatar"><i class="fa-solid fa-user-graduate"></i></div>
+                <div class="min-w-0"><div class="small text-muted lh-1">Thí sinh</div><div id="student-info-display" class="name">...</div></div>
+              </div>
+              <div class="timer-badge" id="exam-timer"><i class="fa-regular fa-clock me-2"></i><span id="timer-text">30:00</span></div>
             </div>
-            <div id="tab-warn" class="alert alert-warning py-2 d-none"></div>
-            <div class="progress mb-4" style="height: 12px;">
-              <div id="exam-progress-bar" class="progress-bar bg-success" style="width: 0%"></div>
-            </div>
-
-            <!-- Câu hỏi hiển thị -->
-            <div id="question-box"></div>
-
-            <div class="d-flex justify-content-between mt-4">
-              <button class="btn btn-outline-secondary px-4" onclick="prevQuestion()"><i class="fa-solid fa-arrow-left me-2"></i>Câu trước</button>
-              <button class="btn btn-primary px-4" onclick="nextQuestion()">Câu tiếp theo<i class="fa-solid fa-arrow-right ms-2"></i></button>
-            </div>
+            <div class="d-flex justify-content-between small text-muted mt-2 mb-1"><span>Đã trả lời <b id="answered-text" class="text-dark">0/31</b></span><span id="pct-text">0%</span></div>
+            <div class="progress"><div id="exam-progress-bar" class="progress-bar" style="width:0%"></div></div>
+            <div id="tab-warn" class="alert alert-warning py-2 mt-2 mb-0 d-none"></div>
+          </div>
+          <div id="question-box"></div>
+          <div class="q-nav d-flex justify-content-between mt-3 gap-2">
+            <button class="btn btn-outline-secondary" onclick="prevQuestion()"><i class="fa-solid fa-arrow-left me-2"></i>Câu trước</button>
+            <button class="btn btn-primary" onclick="nextQuestion()">Câu tiếp theo<i class="fa-solid fa-arrow-right ms-2"></i></button>
           </div>
         </div>
-
-        <div class="col-md-3">
-          <div class="card card-custom p-3">
-            <h5 class="fw-bold text-center">DANH SÁCH CÂU HỎI</h5>
-            <hr class="my-2">
-            <div id="nav-grid" class="d-flex flex-wrap justify-content-center"></div>
+        <div class="col-lg-3">
+          <div class="side-card side-sticky">
+            <h6 class="fw-bold text-center mb-3"><i class="fa-solid fa-table-cells me-2 text-primary"></i>DANH SÁCH CÂU HỎI</h6>
+            <div id="nav-grid" class="nav-grid"></div>
+            <div class="legend">
+              <span><i style="background:#10B981"></i>Đã làm</span><span><i style="background:#fff;border:2px solid #e5eaf3"></i>Chưa làm</span><span><i style="box-shadow:0 0 0 2px #2563EB"></i>Đang xem</span>
+            </div>
             <hr class="my-3">
-            <button onclick="confirmSubmit()" class="btn btn-danger w-100 fw-bold py-2 fs-6"><i class="fa-solid fa-check-double me-2"></i>NỘP BÀI THI</button>
+            <button onclick="confirmSubmit()" class="btn btn-danger w-100 fw-bold py-2"><i class="fa-solid fa-check-double me-2"></i>NỘP BÀI THI</button>
+            <div class="small text-muted text-center mt-2">Phím tắt: A B C D chọn đáp án, ← → chuyển câu</div>
           </div>
         </div>
       </div>
