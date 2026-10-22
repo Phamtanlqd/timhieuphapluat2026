@@ -134,7 +134,10 @@ async function showRankings() {
 async function loadRankings() {
   const tbody = $('ranking-table-body');
   try {
-    const d = await api('ranking'); rankRows = d.rows; classRows = d.lop || []; renderClassBox();
+    const key = sessionStorage.getItem('adminKey') || '';
+    const d = await api('ranking', { key });
+    if (d.locked) { if (key) sessionStorage.removeItem('adminKey'); showRankLocked(); return; }
+    rankRows = d.rows; classRows = d.lop || []; renderClassBox();
     $('rank-badge').textContent = (d.finalized ? '✔ Kết quả chính thức' : '⏳ Kết quả tạm thời') + ` - ${d.total} bài đã nộp, hiển thị top ${d.rows.length}. Cập nhật ${new Date(d.updated).toLocaleTimeString('vi-VN')}`;
     tbody.innerHTML = rankRows.map((r, i) => `<tr class="${r.hang <= 3 ? 'top' + r.hang : ''}">
       <td><span class="rank-chip ${r.hang <= 3 ? 'r' + r.hang : ''}">${r.hang}</span></td>
@@ -184,3 +187,14 @@ function printClassCertificate(c) {
   new QRCode(qr, { text: `XAC NHAN: Tap the lop ${c.lop} - Dat ${award} Cuoc thi Phap Luat 2026`, width: 90, height: 90 });
   window.print();
 }
+
+function showRankLocked() {
+  rankRows = []; classRows = []; $('class-box').classList.add('d-none');
+  $('rank-badge').textContent = '🔒 Bảng xếp hạng chưa được công bố.';
+  $('ranking-table-body').innerHTML = '<tr><td colspan="9" class="text-center py-5"><div class="fs-5 fw-bold mb-1">Kết quả chưa được công bố</div><div class="text-muted mb-3">Vui lòng theo dõi thông báo của ban tổ chức.</div><button class="btn btn-sm btn-outline-secondary" id="btn-rank-key">Dành cho ban tổ chức</button></td></tr>';
+}
+$('ranking-table-body').addEventListener('click', e => {
+  if (!e.target.closest('#btn-rank-key')) return;
+  const k = prompt('Nhập khóa quản trị:'); if (!k) return;
+  sessionStorage.setItem('adminKey', k); loadRankings();
+});
