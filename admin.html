@@ -41,6 +41,21 @@
       </div>
       <button class="btn btn-outline-primary mt-2" id="btnSetKey">Đổi khóa</button>
     </div>
+    <div class="card-fluent p-4 mb-3">
+      <h5 class="fw-bold">Danh sách vào vòng tiếp theo <span id="advBadge" class="pill wait ms-2 d-none"></span></h5>
+      <p class="text-muted small">Mỗi lớp lấy các thí sinh cao nhất (mặc định 2), xếp theo tiêu chí chung: số câu đúng, thời gian, sai lệch câu hỏi phụ, nộp sớm. Khi khóa cuộc thi, danh sách được ghi vào sheet VONG_TIEP.</p>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-primary" id="btnAdv">📋 Xem danh sách</button>
+        <button class="btn btn-outline-primary" id="btnAdvXls">📥 Tải Excel</button>
+      </div>
+      <div id="advWarn" class="small text-danger mt-2"></div>
+      <div class="table-responsive mt-2" style="max-height:420px">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead><tr><th>Lớp</th><th>Hạng lớp</th><th>Mã HS</th><th>Họ tên</th><th>Câu đúng</th><th>Thời gian</th><th>Sai lệch</th><th>Hạng trường</th><th>Giải</th></tr></thead>
+          <tbody id="advBody"></tbody>
+        </table>
+      </div>
+    </div>
     <div class="card-fluent p-4">
       <h5 class="fw-bold">Reset trạng thái học sinh</h5>
       <p class="text-muted small">Reset sẽ đổi TrangThai về CHUA_THI và xóa kết quả đã lưu của học sinh đó.</p>
