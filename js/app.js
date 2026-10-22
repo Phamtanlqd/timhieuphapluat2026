@@ -205,46 +205,62 @@ async function triggerAppScriptRankings() {
   }
 }
 
-function printCertificate(r, btn) {
-  if (!r || !r.giai) { alert('Thí sinh này chưa có kết quả xếp giải!'); return; }
+/* ---------- Xuất giấy chứng nhận PDF ---------- */
+// Lý do bản cũ không ra file: mẫu bị ẩn bằng opacity:0 / z-index âm nên html2canvas chụp ra trang trống,
+// ngoài ra còn lệch vị trí khi trang đang cuộn và mã QR chưa kịp vẽ. Bản này hiển thị mẫu tạm thời
+// ở góc trên trái (có lớp nền trắng che phía sau), đợi QR/font sẵn sàng rồi mới chụp.
+async function waitForCert(el) {
+  if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
+  const imgs = Array.from(el.querySelectorAll('img'));
+  await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })));
+  await new Promise(r => setTimeout(r, 350));
+}
+async function exportCertificate(c, btn) {
   const oldText = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Đang tạo...'; }
-
+  const el = $('certificate-print-area');
+  const keepY = window.scrollY;
+  const cover = document.createElement('div');
+  cover.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;background:#fff;z-index:99998;text-align:center;padding-top:8px;font-weight:600;color:#475569';
+  cover.textContent = 'Đang tạo giấy chứng nhận...';
+  try {
+    if (typeof html2pdf === 'undefined') throw new Error('Chưa tải được thư viện tạo PDF. Hãy kiểm tra mạng rồi tải lại trang (Ctrl+F5).');
+    if (typeof QRCode === 'undefined') throw new Error('Chưa tải được thư viện mã QR. Hãy kiểm tra mạng rồi tải lại trang (Ctrl+F5).');
+    $('cert-name').textContent = c.name || '';
+    $('cert-class').textContent = c.cls || '';
+    $('cert-award').textContent = c.award || '';
+    $('cert-date').textContent = CERT_DATE;
+    const qr = $('cert-qr'); qr.innerHTML = '';
+    new QRCode(qr, { text: c.qrText, width: 90, height: 90 });
+    document.body.appendChild(cover);
+    window.scrollTo(0, 0);
+    el.style.cssText = 'display:block;position:fixed;left:0;top:0;width:1000px;height:700px;z-index:99999;background:#fff;opacity:1;visibility:visible';
+    await waitForCert(el);
+    await html2pdf().set({
+      margin: 0,
+      filename: c.fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 1000, windowHeight: 700, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'px', format: [1000, 700], orientation: 'landscape', hotfixes: ['px_scaling'] },
+      pagebreak: { mode: 'avoid-all' }
+    }).from(el).save();
+  } catch (err) {
+    alert('Có lỗi khi tạo PDF: ' + (err && err.message ? err.message : err));
+  } finally {
+    el.style.cssText = '';           // trở về trạng thái ẩn theo CSS (display:none)
+    cover.remove();
+    window.scrollTo(0, keepY);
+    if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
+  }
+}
+function printCertificate(r, btn) {
+  if (!r || !r.giai) { alert('Thí sinh này chưa có kết quả xếp giải! (Cần bấm "Khóa cuộc thi & trao giải" hoặc "Chốt lại giải thưởng" trong trang quản trị trước.)'); return; }
   const award = r.giai.split(' - ')[0];
-  $('cert-name').textContent = r.hoTen || ''; 
-  $('cert-class').textContent = r.lop || ''; 
-  $('cert-award').textContent = award;
-  $('cert-date').textContent = CERT_DATE;
-  const qr = $('cert-qr'); qr.innerHTML = '';
-  new QRCode(qr, { text: `XAC NHAN: ${r.hoTen || ''} - Lop ${r.lop || ''} - Dat ${award} Cuoc thi Phap Luat 2026`, width: 90, height: 90 });
-  
-  const element = $('certificate-print-area');
-  element.style.display = 'block';
-  element.style.position = 'absolute';
-  element.style.left = '0';
-  element.style.top = '0';
-  element.style.opacity = '0';
-  element.style.pointerEvents = 'none';
-  element.style.zIndex = '-999';
-
-  const opt = {
-    margin:       0,
-    filename:     `GiayChungNhan_${(r.hoTen || 'ThiSinh').replace(/\s+/g, '_')}_${r.lop || ''}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true, logging: false },
-    jsPDF:        { unit: 'px', format: [1000, 700], orientation: 'landscape' }
-  };
-
-  setTimeout(() => {
-    html2pdf().set(opt).from(element).save().then(() => {
-      element.style.display = 'none';
-      if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
-    }).catch(err => {
-      alert('Có lỗi khi tạo PDF: ' + err.message);
-      element.style.display = 'none';
-      if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
-    });
-  }, 600);
+  exportCertificate({
+    name: r.hoTen, cls: r.lop, award,
+    qrText: `XAC NHAN: ${r.hoTen || ''} - Lop ${r.lop || ''} - Dat ${award} Cuoc thi Phap Luat 2026`,
+    fileName: `GiayChungNhan_${(r.hoTen || 'ThiSinh').replace(/\s+/g, '_')}_${r.lop || ''}.pdf`
+  }, btn);
 }
 
 function renderClassBox() {
@@ -288,42 +304,10 @@ $('class-box').addEventListener('click', e => {
 
 function printClassCertificate(c, btn) {
   if (!c || !c.giai) return;
-  const oldText = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Đang tạo...'; }
-
   const award = c.giai.split(' - ')[0];
-  $('cert-name').textContent = 'Tập thể lớp ' + (c.lop || ''); 
-  $('cert-class').textContent = c.lop || ''; 
-  $('cert-award').textContent = award;
-  $('cert-date').textContent = CERT_DATE;
-  const qr = $('cert-qr'); qr.innerHTML = '';
-  new QRCode(qr, { text: `XAC NHAN: Tap the lop ${c.lop || ''} - Dat ${award} Cuoc thi Phap Luat 2026`, width: 90, height: 90 });
-  
-  const element = $('certificate-print-area');
-  element.style.display = 'block';
-  element.style.position = 'absolute';
-  element.style.left = '0';
-  element.style.top = '0';
-  element.style.opacity = '0';
-  element.style.pointerEvents = 'none';
-  element.style.zIndex = '-999';
-
-  const opt = {
-    margin:       0,
-    filename:     `GiayKhen_TapThe_Lop_${c.lop || ''}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true, logging: false },
-    jsPDF:        { unit: 'px', format: [1000, 700], orientation: 'landscape' }
-  };
-
-  setTimeout(() => {
-    html2pdf().set(opt).from(element).save().then(() => {
-      element.style.display = 'none';
-      if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
-    }).catch(err => {
-      alert('Có lỗi khi tạo PDF: ' + err.message);
-      element.style.display = 'none';
-      if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
-    });
-  }, 600);
+  exportCertificate({
+    name: 'Tập thể lớp ' + (c.lop || ''), cls: c.lop, award,
+    qrText: `XAC NHAN: Tap the lop ${c.lop || ''} - Dat ${award} Cuoc thi Phap Luat 2026`,
+    fileName: `GiayKhen_TapThe_Lop_${c.lop || ''}.pdf`
+  }, btn);
 }
