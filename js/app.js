@@ -220,14 +220,18 @@ function printCertificate(r, btn) {
   
   const element = $('certificate-print-area');
   element.style.display = 'block';
-  element.style.position = 'fixed';
-  element.style.left = '-9999px';
+  element.style.position = 'absolute';
+  element.style.left = '0';
+  element.style.top = '0';
+  element.style.opacity = '0';
+  element.style.pointerEvents = 'none';
+  element.style.zIndex = '-999';
 
   const opt = {
     margin:       0,
     filename:     `GiayChungNhan_${(r.hoTen || 'ThiSinh').replace(/\s+/g, '_')}_${r.lop || ''}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true },
+    html2canvas:  { scale: 2, useCORS: true, logging: false },
     jsPDF:        { unit: 'px', format: [1000, 700], orientation: 'landscape' }
   };
 
@@ -240,7 +244,7 @@ function printCertificate(r, btn) {
       element.style.display = 'none';
       if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
     });
-  }, 500);
+  }, 600);
 }
 
 function renderClassBox() {
@@ -297,14 +301,18 @@ function printClassCertificate(c, btn) {
   
   const element = $('certificate-print-area');
   element.style.display = 'block';
-  element.style.position = 'fixed';
-  element.style.left = '-9999px';
+  element.style.position = 'absolute';
+  element.style.left = '0';
+  element.style.top = '0';
+  element.style.opacity = '0';
+  element.style.pointerEvents = 'none';
+  element.style.zIndex = '-999';
 
   const opt = {
     margin:       0,
     filename:     `GiayKhen_TapThe_Lop_${c.lop || ''}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true },
+    html2canvas:  { scale: 2, useCORS: true, logging: false },
     jsPDF:        { unit: 'px', format: [1000, 700], orientation: 'landscape' }
   };
 
@@ -317,5 +325,5 @@ function printClassCertificate(c, btn) {
       element.style.display = 'none';
       if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
     });
-  }, 500);
+  }, 600);
 }
