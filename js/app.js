@@ -27,11 +27,11 @@ function begin(d) {
   questions = d.questions; phuText = d.phu; total = d.total;
   byId = {}; questions.forEach(q => byId[q.id] = q);
   let draft = null; try { draft = JSON.parse(localStorage.getItem(draftKey())); } catch {}
-  const resumed = d.remaining < d.total - 20;   // vừa bắt đầu => bỏ qua nháp cũ
-  const ok = resumed && draft && draft.layout.length === questions.length && draft.layout.every(l => byId[l.id]);
+  const resumed = d.remaining < d.total - 20;   
+  const ok = resumed && draft && draft.layout && Array.isArray(draft.layout) && draft.layout.length === questions.length && draft.layout.every(l => byId[l.id]);
   if (ok) { layout = draft.layout; ans = draft.ans || {}; duDoan = draft.du || ''; }
   else { layout = shuffle(questions.map(q => ({ id: q.id, opts: shuffle(['A', 'B', 'C', 'D']) }))); ans = {}; duDoan = ''; save(); }
-  endAt = Date.now() + d.remaining * 1000;      // thời gian còn lại do server tính
+  endAt = Date.now() + d.remaining * 1000;      
   $('student-info-display').textContent = `${session.hs.hoTen} · ${session.hs.lop}`;
   document.body.classList.add('in-exam');
   show('section-exam'); active = true;
@@ -126,18 +126,18 @@ async function submitExam(auto) {
   }
 }
 
-/* ---------- Bảng xếp hạng & In bằng ---------- */
+/* ---------- Bảng xếp hạng & In bằng (Đã bảo vệ an toàn tuyệt đối) ---------- */
 async function showRankings() {
   show('section-rankings'); clearInterval(rankTimer);
   await loadRankings(); rankTimer = setInterval(() => { if (!document.hidden) loadRankings(); }, RANKING_REFRESH_MS);
 }
+
 async function loadRankings() {
   const tbody = $('ranking-table-body');
   try {
     const d = await api('ranking');
     
-    // Kiểm tra an toàn khi bảng xếp hạng đang bị khóa/ẩn đối với thí sinh
-    if (d.locked) {
+    if (!d || d.locked) {
       $('rank-badge').textContent = '🔒 Bảng xếp hạng đang tạm ẩn theo yêu cầu của Ban tổ chức.';
       tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">Kết quả chưa được công bố. Vui lòng quay lại sau.</td></tr>`;
       const box = $('class-box');
@@ -145,43 +145,75 @@ async function loadRankings() {
       return;
     }
 
-    rankRows = d.rows || []; 
-    classRows = d.lop || []; 
+    rankRows = Array.isArray(d.rows) ? d.rows : []; 
+    classRows = Array.isArray(d.lop) ? d.lop : []; 
     renderClassBox();
     
-    $('rank-badge').textContent = (d.finalized ? '✔ Kết quả chính thức' : '⏳ Kết quả tạm thời') + ` - ${d.total} bài đã nộp, hiển thị top ${rankRows.length}. Cập nhật ${new Date(d.updated).toLocaleTimeString('vi-VN')}`;
+    const total = d.total !== undefined ? d.total : rankRows.length;
+    const updatedStr = d.updated ? new Date(d.updated).toLocaleTimeString('vi-VN') : '';
+    const isFin = !!d.finalized;
+
+    $('rank-badge').textContent = (isFin ? '✔ Kết quả chính thức' : '⏳ Kết quả tạm thời') + ` - ${total} bài đã nộp, hiển thị top ${rankRows.length}. Cập nhật ${updatedStr}`;
     
-    tbody.innerHTML = rankRows.map((r, i) => `<tr class="${r.hang <= 3 ? 'top' + r.hang : ''}">
-      <td><span class="rank-chip ${r.hang <= 3 ? 'r' + r.hang : ''}">${r.hang}</span></td>
-      <td><b>${esc(r.ma)}</b></td><td>${esc(r.hoTen)}</td><td>${esc(r.lop)}</td>
-      <td><b class="text-success">${r.dung}/30</b></td><td>${r.tg}s</td><td>${r.du}</td>
-      <td><span class="badge bg-warning text-dark fw-bold">${esc(r.giai || 'Chưa tính')}</span></td>
-      <td><button class="btn btn-sm btn-outline-primary" data-i="${i}"><i class="fa-solid fa-print me-1"></i>In Bằng</button></td></tr>`).join('')
-      || `<tr><td colspan="9" class="text-center text-muted">Chưa có dữ liệu xếp hạng.</td></tr>`;
+    if (rankRows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">Chưa có dữ liệu xếp hạng.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rankRows.map((r, i) => {
+      const hang = r && r.hang ? r.hang : (i + 1);
+      const ma = r && r.ma ? r.ma : '';
+      const hoTen = r && r.hoTen ? r.hoTen : '';
+      const lop = r && r.lop ? r.lop : '';
+      const dung = (r && r.dung !== undefined) ? r.dung : 0;
+      const tg = (r && r.tg !== undefined) ? r.tg : 0;
+      const du = (r && r.du !== undefined) ? r.du : 0;
+      const giai = r && r.giai ? r.giai : 'Chưa tính';
+      const topClass = hang <= 3 ? 'top' + hang : '';
+      const chipClass = hang <= 3 ? 'r' + hang : '';
+
+      return `<tr class="${topClass}">
+        <td><span class="rank-chip ${chipClass}">${hang}</span></td>
+        <td><b>${esc(ma)}</b></td><td>${esc(hoTen)}</td><td>${esc(lop)}</td>
+        <td><b class="text-success">${dung}/30</b></td><td>${tg}s</td><td>${du}</td>
+        <td><span class="badge bg-warning text-dark fw-bold">${esc(giai)}</span></td>
+        <td><button class="btn btn-sm btn-outline-primary" data-i="${i}"><i class="fa-solid fa-print me-1"></i>In Bằng</button></td></tr>`;
+    }).join('');
+
   } catch (e) { 
-    tbody.innerHTML = `<tr><td colspan="9" class="text-danger text-center">${esc(e.message)}</td></tr>`; 
+    tbody.innerHTML = `<tr><td colspan="9" class="text-danger text-center">Lỗi tải dữ liệu: ${esc(e.message)}</td></tr>`; 
   }
 }
+
 $('ranking-table-body').addEventListener('click', e => {
-  const b = e.target.closest('button[data-i]'); if (b) printCertificate(rankRows[b.dataset.i]);
+  const b = e.target.closest('button[data-i]'); 
+  if (b && rankRows && rankRows[b.dataset.i]) {
+    printCertificate(rankRows[b.dataset.i]);
+  }
 });
 
 async function triggerAppScriptRankings() {
   const key = prompt('Nhập khóa quản trị để tổng kết và trao giải:');
   if (!key) return;
-  try { const r = await api('admin_finalize', { key }); alert(`Đã tổng kết, trao giải cho ${r.winners.length} thí sinh.`); loadRankings(); }
-  catch (e) { alert(e.message); }
+  try { 
+    const r = await api('admin_finalize', { key }); 
+    alert(`Đã tổng kết, trao giải cho ${r.winners ? r.winners.length : 0} thí sinh.`); 
+    loadRankings(); 
+  } catch (e) { 
+    alert(e.message); 
+  }
 }
 
 function printCertificate(r) {
   if (!r || !r.giai) { alert('Thí sinh này chưa có kết quả xếp giải!'); return; }
   const award = r.giai.split(' - ')[0];
-  $('cert-name').textContent = r.hoTen; $('cert-class').textContent = r.lop; $('cert-award').textContent = award;
+  $('cert-name').textContent = r.hoTen || ''; 
+  $('cert-class').textContent = r.lop || ''; 
+  $('cert-award').textContent = award;
   $('cert-date').textContent = CERT_DATE;
   const qr = $('cert-qr'); qr.innerHTML = '';
-  new QRCode(qr, { text: `XAC NHAN: ${r.hoTen} - Lop ${r.lop} - Dat ${award} Cuoc thi Phap Luat 2026`, width: 90, height: 90 });
+  new QRCode(qr, { text: `XAC NHAN: ${r.hoTen || ''} - Lop ${r.lop || ''} - Dat ${award} Cuoc thi Phap Luat 2026`, width: 90, height: 90 });
   
-  // Trì hoãn 300ms để QR Code render xong xuôi mới bật hộp thoại in
   setTimeout(() => {
     window.print();
   }, 300);
@@ -189,21 +221,51 @@ function printCertificate(r) {
 
 function renderClassBox() {
   const box = $('class-box');
-  if (!classRows.length) { box.classList.add('d-none'); return; }
+  if (!box) return;
+  if (!Array.isArray(classRows) || classRows.length === 0) { 
+    box.classList.add('d-none'); 
+    return; 
+  }
   box.classList.remove('d-none');
-  const w = classRows[0];
-  $('class-winner').innerHTML = `<span><i class="fa-solid fa-people-group me-2"></i>Lớp dẫn đầu: <b>${esc(w.lop)}</b> - ${w.soHS} thí sinh (${w.tyLe}% sĩ số), TB ${w.tbDung}/30 câu, ${w.tbTg}s</span>` +
-    (w.giai ? `<span class="badge bg-warning text-dark">${esc(w.giai)}</span><button class="btn btn-sm btn-outline-primary" id="btn-cert-class"><i class="fa-solid fa-print me-1"></i>In bằng khen tập thể</button>` : '');
-  $('class-body').innerHTML = classRows.slice(0, 10).map(c => `<tr><td><b>${c.hang}</b></td><td>${esc(c.lop)}</td><td>${c.soHS}/${c.siSo}</td><td>${c.tyLe}%</td><td>${c.tbDung}</td><td>${c.tbTg}s</td></tr>`).join('');
+  const w = classRows[0] || {};
+  const winnerLop = w.lop || '';
+  const winnerSoHS = w.soHS || 0;
+  const winnerSiSo = w.siSo || 0;
+  const winnerTyLe = w.tyLe || 0;
+  const winnerTbDung = w.tbDung || 0;
+  const winnerTbTg = w.tbTg || 0;
+  const winnerGiai = w.giai || '';
+
+  const winnerEl = $('class-winner');
+  if (winnerEl) {
+    winnerEl.innerHTML = `<span><i class="fa-solid fa-people-group me-2"></i>Lớp dẫn đầu: <b>${esc(winnerLop)}</b> - ${winnerSoHS} thí sinh (${winnerTyLe}% sĩ số), TB ${winnerTbDung}/30 câu, ${winnerTbTg}s</span>` +
+      (winnerGiai ? `<span class="badge bg-warning text-dark">${esc(winnerGiai)}</span><button class="btn btn-sm btn-outline-primary" id="btn-cert-class"><i class="fa-solid fa-print me-1"></i>In bằng khen tập thể</button>` : '');
+  }
+
+  const bodyEl = $('class-body');
+  if (bodyEl) {
+    bodyEl.innerHTML = classRows.slice(0, 10).map(c => {
+      if (!c) return '';
+      return `<tr><td><b>${c.hang || ''}</b></td><td>${esc(c.lop || '')}</td><td>${c.soHS || 0}/${c.siSo || 0}</td><td>${c.tyLe || 0}%</td><td>${c.tbDung || 0}</td><td>${c.tbTg || 0}s</td></tr>`;
+    }).join('');
+  }
 }
-$('class-box').addEventListener('click', e => { if (e.target.closest('#btn-cert-class')) printClassCertificate(classRows[0]); });
+
+$('class-box').addEventListener('click', e => { 
+  if (e.target.closest('#btn-cert-class') && classRows && classRows[0]) {
+    printClassCertificate(classRows[0]);
+  }
+});
+
 function printClassCertificate(c) {
   if (!c || !c.giai) return;
   const award = c.giai.split(' - ')[0];
-  $('cert-name').textContent = 'Tập thể lớp ' + c.lop; $('cert-class').textContent = c.lop; $('cert-award').textContent = award;
+  $('cert-name').textContent = 'Tập thể lớp ' + (c.lop || ''); 
+  $('cert-class').textContent = c.lop || ''; 
+  $('cert-award').textContent = award;
   $('cert-date').textContent = CERT_DATE;
   const qr = $('cert-qr'); qr.innerHTML = '';
-  new QRCode(qr, { text: `XAC NHAN: Tap the lop ${c.lop} - Dat ${award} Cuoc thi Phap Luat 2026`, width: 90, height: 90 });
+  new QRCode(qr, { text: `XAC NHAN: Tap the lop ${c.lop || ''} - Dat ${award} Cuoc thi Phap Luat 2026`, width: 90, height: 90 });
   
   setTimeout(() => {
     window.print();
