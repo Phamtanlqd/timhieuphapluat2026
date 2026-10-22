@@ -206,9 +206,8 @@ async function triggerAppScriptRankings() {
 }
 
 /* ---------- Xuất giấy chứng nhận PDF ---------- */
-// Lý do bản cũ không ra file: mẫu bị ẩn bằng opacity:0 / z-index âm nên html2canvas chụp ra trang trống,
-// ngoài ra còn lệch vị trí khi trang đang cuộn và mã QR chưa kịp vẽ. Bản này hiển thị mẫu tạm thời
-// ở góc trên trái (có lớp nền trắng che phía sau), đợi QR/font sẵn sàng rồi mới chụp.
+// Lý do PDF trắng: mẫu để position:absolute/fixed (và ẩn bằng opacity:0) nên html2pdf chụp một khung cao 0px.
+// Bản này để mẫu trong luồng bình thường, che bằng lớp nền trắng, đợi QR/font sẵn sàng rồi mới chụp.
 // QR chỉ chứa chuỗi ngắn, không dấu: thư viện qrcodejs báo "code length overflow" với chuỗi dài hoặc có tiếng Việt có dấu (UTF-8)
 const toAscii = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^\x20-\x7E]/g, '');
 async function waitForCert(el) {
@@ -237,13 +236,15 @@ async function exportCertificate(c, btn) {
     catch (qrErr) { qr.innerHTML = ''; console.warn('Không tạo được mã QR, vẫn xuất giấy không có QR:', qrErr); }
     document.body.appendChild(cover);
     window.scrollTo(0, 0);
-    el.style.cssText = 'display:block;position:fixed;left:0;top:0;width:1000px;height:700px;z-index:99999;background:#fff;opacity:1;visibility:visible';
+    // QUAN TRỌNG: html2pdf nhân bản phần tử này vào khung riêng. Nếu phần tử là position:fixed/absolute thì nó
+    // nằm ngoài luồng nên khung chứa cao 0px => PDF trang trắng. Vì vậy để ở luồng bình thường (relative).
+    el.style.cssText = 'display:block;position:relative;width:1000px;height:700px;background:#fff;';
     await waitForCert(el);
     await html2pdf().set({
       margin: 0,
       filename: c.fileName,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: 1000, windowHeight: 700, backgroundColor: '#ffffff' },
+      html2canvas: { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, width: 1000, height: 700, windowWidth: 1000, windowHeight: 700, backgroundColor: '#ffffff' },
       jsPDF: { unit: 'px', format: [1000, 700], orientation: 'landscape', hotfixes: ['px_scaling'] },
       pagebreak: { mode: 'avoid-all' }
     }).from(el).save();
