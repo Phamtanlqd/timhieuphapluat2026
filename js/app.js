@@ -206,54 +206,89 @@ async function triggerAppScriptRankings() {
 }
 
 /* ---------- Xuất giấy chứng nhận PDF ---------- */
-// Lý do PDF trắng: mẫu để position:absolute/fixed (và ẩn bằng opacity:0) nên html2pdf chụp một khung cao 0px.
-// Bản này để mẫu trong luồng bình thường, che bằng lớp nền trắng, đợi QR/font sẵn sàng rồi mới chụp.
-// QR chỉ chứa chuỗi ngắn, không dấu: thư viện qrcodejs báo "code length overflow" với chuỗi dài hoặc có tiếng Việt có dấu (UTF-8)
+// Không dùng html2pdf nữa (chụp DOM hay ra trang trắng). Giấy được VẼ trực tiếp lên canvas rồi đóng gói thành PDF 1 trang.
+// QR chỉ chứa chuỗi ngắn, không dấu: qrcodejs báo "code length overflow" với chuỗi dài / tiếng Việt có dấu.
 const toAscii = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^\x20-\x7E]/g, '');
-async function waitForCert(el) {
-  if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
-  const imgs = Array.from(el.querySelectorAll('img'));
-  await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })));
-  await new Promise(r => setTimeout(r, 350));
+const CERT_FONT = '"Be Vietnam Pro","Segoe UI",Roboto,Arial,sans-serif';
+
+function certFit(ctx, text, weight, size, maxW) {          // thu nhỏ chữ nếu quá dài
+  let s = size;
+  for (; s > 12; s--) { ctx.font = `${weight} ${s}px ${CERT_FONT}`; if (ctx.measureText(text).width <= maxW) break; }
+  return s;
+}
+function certQr(text) {
+  try {
+    const d = document.createElement('div');
+    new QRCode(d, { text: String(text).slice(0, 60), width: 90, height: 90, correctLevel: QRCode.CorrectLevel.M });
+    return d.querySelector('canvas') || d.querySelector('img');
+  } catch (e) { console.warn('Không tạo được mã QR, vẫn xuất giấy không có QR:', e); return null; }
+}
+async function drawCertificate(c) {
+  const W = 1000, H = 700, K = 2;
+  const cv = document.createElement('canvas'); cv.width = W * K; cv.height = H * K;
+  const x = cv.getContext('2d'); x.scale(K, K);
+  try { if (document.fonts && document.fonts.load) await Promise.all(['400', '600', '700', '800'].map(w => document.fonts.load(`${w} 20px "Be Vietnam Pro"`, 'Àáạảđ'))); } catch (e) {}
+  x.fillStyle = '#fffdf7'; x.fillRect(0, 0, W, H);
+  x.strokeStyle = '#003366'; x.lineWidth = 15; x.strokeRect(7.5, 7.5, W - 15, H - 15);
+  x.strokeStyle = '#ffcc00'; x.lineWidth = 3; x.strokeRect(46.5, 46.5, W - 93, H - 93);
+  x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  const cx = W / 2, line = (t, y, w, size, color, maxW) => { x.fillStyle = color; certFit(x, t, w, size, maxW || 800); x.fillText(t, cx, y); };
+  line('TRƯỜNG THPT CHUYÊN LÊ QUÝ ĐÔN', 112, 700, 21, '#111827');
+  line('GIẤY CHỨNG NHẬN', 180, 800, 42, '#dc3545');
+  line('Chứng nhận thí sinh / tập thể:', 236, 400, 18, '#111827');
+  line(c.name || '', 300, 800, 40, '#0d6efd', 780);
+  line('Lớp: ' + (c.cls || ''), 345, 700, 21, '#111827');
+  line('Đã đạt thành tích xuất sắc trong cuộc thi Trực Tuyến', 396, 400, 19, '#111827');
+  line('“Tìm Hiểu Pháp Luật Năm 2026”', 430, 700, 22, '#111827');
+  const aw = certFit(x, c.award || '', 800, 26, 640); x.font = `800 ${aw}px ${CERT_FONT}`;
+  const tw = x.measureText(c.award || '').width, bw = tw + 90, bh = 54, by = 450;
+  x.fillStyle = '#212529'; x.beginPath();
+  if (x.roundRect) x.roundRect(cx - bw / 2, by, bw, bh, 27); else x.rect(cx - bw / 2, by, bw, bh);
+  x.fill();
+  x.fillStyle = '#ffc107'; x.fillText(c.award || '', cx, by + bh / 2 + aw * 0.35);
+  const qr = certQr(c.qrText);
+  if (qr) { x.fillStyle = '#fff'; x.fillRect(100, 530, 110, 110); try { x.drawImage(qr, 110, 540, 90, 90); } catch (e) {} }
+  const rx = 770;
+  x.fillStyle = '#111827'; x.textAlign = 'center';
+  x.font = `400 16px ${CERT_FONT}`; x.fillText(CERT_DATE, rx, 548);
+  x.font = `800 18px ${CERT_FONT}`; x.fillText('TRƯỞNG BAN TỔ CHỨC', rx, 584);
+  x.font = `700 16px ${CERT_FONT}`; x.fillText('(Đã ký)', rx, 626);
+  return cv;
+}
+function jpegToPdfBlob(jpeg, pxW, pxH, W, H) {                // PDF 1 trang (W x H điểm) chứa 1 ảnh JPEG, không cần thư viện
+  const enc = new TextEncoder(), chunks = [], off = [];
+  let len = 0;
+  const push = b => { const u = typeof b === 'string' ? enc.encode(b) : b; chunks.push(u); len += u.length; };
+  push('%PDF-1.4\n');
+  off[1] = len; push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  off[2] = len; push('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+  off[3] = len; push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`);
+  off[4] = len; push(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pxW} /Height ${pxH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`); push(jpeg); push('\nendstream\nendobj\n');
+  const content = `q ${W} 0 0 ${H} 0 0 cm /Im0 Do Q`;
+  off[5] = len; push(`5 0 obj\n<< /Length ${content.length} >>\nstream\n${content}\nendstream\nendobj\n`);
+  const xref = len; let t = 'xref\n0 6\n0000000000 65535 f \n';
+  for (let i = 1; i <= 5; i++) t += String(off[i]).padStart(10, '0') + ' 00000 n \n';
+  push(t + `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(chunks, { type: 'application/pdf' });
+}
+function saveBlob(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
 }
 async function exportCertificate(c, btn) {
   const oldText = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Đang tạo...'; }
-  const el = $('certificate-print-area');
-  const keepY = window.scrollY;
-  const cover = document.createElement('div');
-  cover.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;background:#fff;z-index:99998;text-align:center;padding-top:8px;font-weight:600;color:#475569';
-  cover.textContent = 'Đang tạo giấy chứng nhận...';
   try {
-    if (typeof html2pdf === 'undefined') throw new Error('Chưa tải được thư viện tạo PDF. Hãy kiểm tra mạng rồi tải lại trang (Ctrl+F5).');
-    if (typeof QRCode === 'undefined') throw new Error('Chưa tải được thư viện mã QR. Hãy kiểm tra mạng rồi tải lại trang (Ctrl+F5).');
-    $('cert-name').textContent = c.name || '';
-    $('cert-class').textContent = c.cls || '';
-    $('cert-award').textContent = c.award || '';
-    $('cert-date').textContent = CERT_DATE;
-    const qr = $('cert-qr'); qr.innerHTML = '';
-    try { new QRCode(qr, { text: String(c.qrText).slice(0, 60), width: 90, height: 90, correctLevel: QRCode.CorrectLevel.M }); }
-    catch (qrErr) { qr.innerHTML = ''; console.warn('Không tạo được mã QR, vẫn xuất giấy không có QR:', qrErr); }
-    document.body.appendChild(cover);
-    window.scrollTo(0, 0);
-    // QUAN TRỌNG: html2pdf nhân bản phần tử này vào khung riêng. Nếu phần tử là position:fixed/absolute thì nó
-    // nằm ngoài luồng nên khung chứa cao 0px => PDF trang trắng. Vì vậy để ở luồng bình thường (relative).
-    el.style.cssText = 'display:block;position:relative;width:1000px;height:700px;background:#fff;';
-    await waitForCert(el);
-    await html2pdf().set({
-      margin: 0,
-      filename: c.fileName,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, width: 1000, height: 700, windowWidth: 1000, windowHeight: 700, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'px', format: [1000, 700], orientation: 'landscape', hotfixes: ['px_scaling'] },
-      pagebreak: { mode: 'avoid-all' }
-    }).from(el).save();
+    if (typeof QRCode === 'undefined') console.warn('Chưa tải được thư viện QR, giấy sẽ không có mã QR.');
+    const cv = await drawCertificate(c);
+    const b64 = cv.toDataURL('image/jpeg', 0.95).split(',')[1];
+    const bin = atob(b64), jpeg = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) jpeg[i] = bin.charCodeAt(i);
+    saveBlob(jpegToPdfBlob(jpeg, cv.width, cv.height, 750, 525), c.fileName);   // 750x525 pt = 1000x700 px, khổ ngang
   } catch (err) {
     alert('Có lỗi khi tạo PDF: ' + (err && err.message ? err.message : err));
   } finally {
-    el.style.cssText = '';           // trở về trạng thái ẩn theo CSS (display:none)
-    cover.remove();
-    window.scrollTo(0, keepY);
     if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
   }
 }
