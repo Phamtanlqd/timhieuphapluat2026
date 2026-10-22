@@ -56,6 +56,29 @@
         </table>
       </div>
     </div>
+    <div class="card-fluent p-4 mb-3">
+      <h5 class="fw-bold">Thống kê tham gia theo lớp</h5>
+      <p class="text-muted small">Số học sinh đã thi, đang thi, chưa thi của từng lớp và danh sách học sinh chưa tham gia (tính theo cột TrangThai của sheet HOC_SINH).</p>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-primary" id="btnAtt">📊 Xem thống kê</button>
+        <button class="btn btn-outline-primary" id="btnAttXls">📥 Tải Excel</button>
+      </div>
+      <div id="attSum" class="small text-muted mt-2"></div>
+      <div class="table-responsive mt-2" style="max-height:360px">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead><tr><th>Lớp</th><th>Sĩ số</th><th>Đã thi</th><th>Đang thi</th><th>Chưa thi</th><th>Tỷ lệ</th></tr></thead>
+          <tbody id="attBody"></tbody>
+        </table>
+      </div>
+      <h6 class="fw-bold mt-4">Học sinh chưa tham gia</h6>
+      <select id="attFilter" class="form-select mb-2" style="max-width:260px"><option value="">Tất cả các lớp</option></select>
+      <div class="table-responsive" style="max-height:360px">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead><tr><th>Lớp</th><th>Mã HS</th><th>Họ tên</th><th>Trạng thái</th></tr></thead>
+          <tbody id="absBody"></tbody>
+        </table>
+      </div>
+    </div>
     <div class="card-fluent p-4">
       <h5 class="fw-bold">Reset trạng thái học sinh</h5>
       <p class="text-muted small">Reset sẽ đổi TrangThai về CHUA_THI và xóa kết quả đã lưu của học sinh đó.</p>
