@@ -27,7 +27,8 @@ async function enter() {
   }
   sessionStorage.setItem('adminKey', KEY);
   $('keyBox').classList.add('d-none'); 
-  $('panel').classList.remove('d-none');$('btnOut').classList.remove('d-none');
+  $('panel').classList.remove('d-none'); 
+  $('btnOut').classList.remove('d-none');
   refresh();
 }
 
@@ -56,8 +57,10 @@ async function refresh() {
 
 const sure = t => confirm(t);
 
+// --- BỔ SUNG ĐẦY ĐỦ SỰ KIỆN GẮN KẾT CHO NÚT TRUY CẬP ---
 $('btnKey').onclick = enter;
-$('key').addEventListener('keydown', e => { if (e.key === 'Enter') enter(); });$('btnOut').onclick = e => { e.preventDefault(); sessionStorage.removeItem('adminKey'); location.reload(); };
+$('key').addEventListener('keydown', e => { if (e.key === 'Enter') enter(); });
+$('btnOut').onclick = e => { e.preventDefault(); sessionStorage.removeItem('adminKey'); location.reload(); };
 
 $('btnLock').onclick = async () => { 
   if (!sure('Khóa cuộc thi và chốt giải thưởng?')) return; 
@@ -79,7 +82,7 @@ $('btnFinal').onclick = async () => {
   refresh(); 
 };
 
-// Xử lý sự kiện Ẩn / Công khai bảng xếp hạng (Gọi đúng hành động admin_rankpublic)[cite: 1]
+// Xử lý sự kiện Ẩn / Công khai bảng xếp hạng
 $('btnHideRank').onclick = async () => {
   await call('admin_rankpublic', { pub: false });
   msg('Đã ẩn bảng xếp hạng đối với thí sinh.');
@@ -137,13 +140,13 @@ $('btnExport').onclick = async () => {
 if (KEY) enter();
 
 $('btnSetKey').onclick = async () => {
-  const a = $('newKey').value.trim(), b =$('newKey2').value.trim();
+  const a = $('newKey').value.trim(), b = $('newKey2').value.trim();
   if (a.length < 8) return msg('Khóa mới phải có ít nhất 8 ký tự.', 'danger');
   if (a !== b) return msg('Hai lần nhập khóa mới không khớp.', 'danger');
   await call('admin_setkey', { newKey: a });
   KEY = a; 
   sessionStorage.setItem('adminKey', a); 
-  $('newKey').value =$('newKey2').value = '';
+  $('newKey').value = $('newKey2').value = '';
   msg('Đã đổi khóa quản trị. Hãy ghi nhớ khóa mới.');
 };
 
@@ -189,12 +192,14 @@ async function loadAtt() {
 }
 
 function renderAbs() {
-  const f = $('attFilter').value, list = attData.absent.filter(x => !f \vert{}\vert{} x.lop === f);$('absBody').innerHTML = list.map(x => `<tr><td>${esc(x.lop)}</td><td>${esc(x.ma)}</td><td>${esc(x.hoTen)}</td><td>${x.tt === 'DANG_THI' ? 'Đang thi / bỏ dở' : 'Chưa thi'}</td></tr>`).join('')
+  const f = $('attFilter').value, list = attData.absent.filter(x => !f || x.lop === f);
+  $('absBody').innerHTML = list.map(x => `<tr><td>${esc(x.lop)}</td><td>${esc(x.ma)}</td><td>${esc(x.hoTen)}</td><td>${x.tt === 'DANG_THI' ? 'Đang thi / bỏ dở' : 'Chưa thi'}</td></tr>`).join('')
     || '<tr><td colspan="4" class="text-center text-muted">Không có.</td></tr>';
 }
 
 $('btnAtt').onclick = loadAtt;
-$('attFilter').onchange = () => attData && renderAbs();$('btnAttXls').onclick = async () => {
+$('attFilter').onchange = () => attData && renderAbs();
+$('btnAttXls').onclick = async () => {
   await loadAtt();
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Lớp', 'Sĩ số', 'Đã thi', 'Đang thi', 'Chưa thi', 'Tỷ lệ (%)']]
