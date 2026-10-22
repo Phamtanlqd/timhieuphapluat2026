@@ -13,10 +13,10 @@ const save = () => { try { localStorage.setItem(draftKey(), JSON.stringify({ lay
 /* ---------- Đăng nhập + bắt đầu thi ---------- */
 $('form-login').onsubmit = async e => {
   e.preventDefault();
-  const box = $('login-alert'), btn =$('btn-login'), old = btn.innerHTML;
+  const box = $('login-alert'), btn = $('btn-login'), old = btn.innerHTML;
   box.classList.add('d-none'); btn.disabled = true; btn.textContent = 'Đang kiểm tra...';
   try {
-    session = await api('login', { ma: $('login-code').value, mk:$('login-pass').value });
+    session = await api('login', { ma: $('login-code').value, mk: $('login-pass').value });
     begin(await api('start', { token: session.token }, 3));
   } catch (err) {
     box.textContent = err.message; box.classList.remove('d-none');
@@ -27,11 +27,11 @@ function begin(d) {
   questions = d.questions; phuText = d.phu; total = d.total;
   byId = {}; questions.forEach(q => byId[q.id] = q);
   let draft = null; try { draft = JSON.parse(localStorage.getItem(draftKey())); } catch {}
-  const resumed = d.remaining < d.total - 20;   
+  const resumed = d.remaining < d.total - 20;   // vừa bắt đầu => bỏ qua nháp cũ
   const ok = resumed && draft && draft.layout.length === questions.length && draft.layout.every(l => byId[l.id]);
   if (ok) { layout = draft.layout; ans = draft.ans || {}; duDoan = draft.du || ''; }
   else { layout = shuffle(questions.map(q => ({ id: q.id, opts: shuffle(['A', 'B', 'C', 'D']) }))); ans = {}; duDoan = ''; save(); }
-  endAt = Date.now() + d.remaining * 1000;      
+  endAt = Date.now() + d.remaining * 1000;      // thời gian còn lại do server tính
   $('student-info-display').textContent = `${session.hs.hoTen} · ${session.hs.lop}`;
   document.body.classList.add('in-exam');
   show('section-exam'); active = true;
@@ -41,7 +41,8 @@ function begin(d) {
 function tick() {
   const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
   $('timer-text').textContent = fmtTime(left);
-  $('exam-timer').classList.toggle('warn', left <= 300 && left > 60);$('exam-timer').classList.toggle('danger', left <= 60);
+  $('exam-timer').classList.toggle('warn', left <= 300 && left > 60);
+  $('exam-timer').classList.toggle('danger', left <= 60);
   if (left <= 0 && !submitting) submitExam(true);
 }
 
@@ -125,7 +126,7 @@ async function submitExam(auto) {
   }
 }
 
-/* ---------- Bảng xếp hạng ---------- */
+/* ---------- Bảng xếp hạng & In bằng ---------- */
 async function showRankings() {
   show('section-rankings'); clearInterval(rankTimer);
   await loadRankings(); rankTimer = setInterval(() => { if (!document.hidden) loadRankings(); }, RANKING_REFRESH_MS);
@@ -133,15 +134,33 @@ async function showRankings() {
 async function loadRankings() {
   const tbody = $('ranking-table-body');
   try {
-    const d = await api('ranking'); rankRows = d.rows; classRows = d.lop || []; renderClassBox();
-    $('rank-badge').textContent = (d.finalized ? '✔ Kết quả chính thức' : '⏳ Kết quả tạm thời') + ` - ${d.total} bài đã nộp, hiển thị top ${d.rows.length}. Cập nhật ${new Date(d.updated).toLocaleTimeString('vi-VN')}`;
+    const d = await api('ranking');
+    
+    // Kiểm tra an toàn khi bảng xếp hạng đang bị khóa/ẩn đối với thí sinh
+    if (d.locked) {
+      $('rank-badge').textContent = '🔒 Bảng xếp hạng đang tạm ẩn theo yêu cầu của Ban tổ chức.';
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">Kết quả chưa được công bố. Vui lòng quay lại sau.</td></tr>`;
+      const box = $('class-box');
+      if (box) box.classList.add('d-none');
+      return;
+    }
+
+    rankRows = d.rows || []; 
+    classRows = d.lop || []; 
+    renderClassBox();
+    
+    $('rank-badge').textContent = (d.finalized ? '✔ Kết quả chính thức' : '⏳ Kết quả tạm thời') + ` - ${d.total} bài đã nộp, hiển thị top ${rankRows.length}. Cập nhật ${new Date(d.updated).toLocaleTimeString('vi-VN')}`;
+    
     tbody.innerHTML = rankRows.map((r, i) => `<tr class="${r.hang <= 3 ? 'top' + r.hang : ''}">
       <td><span class="rank-chip ${r.hang <= 3 ? 'r' + r.hang : ''}">${r.hang}</span></td>
       <td><b>${esc(r.ma)}</b></td><td>${esc(r.hoTen)}</td><td>${esc(r.lop)}</td>
       <td><b class="text-success">${r.dung}/30</b></td><td>${r.tg}s</td><td>${r.du}</td>
       <td><span class="badge bg-warning text-dark fw-bold">${esc(r.giai || 'Chưa tính')}</span></td>
-      <td><button class="btn btn-sm btn-outline-primary" data-i="${i}"><i class="fa-solid fa-print me-1"></i>In Bằng</button></td></tr>`).join('');
-  } catch (e) { tbody.innerHTML = `<tr><td colspan="9" class="text-danger text-center">${esc(e.message)}</td></tr>`; }
+      <td><button class="btn btn-sm btn-outline-primary" data-i="${i}"><i class="fa-solid fa-print me-1"></i>In Bằng</button></td></tr>`).join('')
+      || `<tr><td colspan="9" class="text-center text-muted">Chưa có dữ liệu xếp hạng.</td></tr>`;
+  } catch (e) { 
+    tbody.innerHTML = `<tr><td colspan="9" class="text-danger text-center">${esc(e.message)}</td></tr>`; 
+  }
 }
 $('ranking-table-body').addEventListener('click', e => {
   const b = e.target.closest('button[data-i]'); if (b) printCertificate(rankRows[b.dataset.i]);
@@ -162,7 +181,10 @@ function printCertificate(r) {
   const qr = $('cert-qr'); qr.innerHTML = '';
   new QRCode(qr, { text: `XAC NHAN: ${r.hoTen} - Lop ${r.lop} - Dat ${award} Cuoc thi Phap Luat 2026`, width: 90, height: 90 });
   
-  setTimeout(() => { window.print(); }, 300);
+  // Trì hoãn 300ms để QR Code render xong xuôi mới bật hộp thoại in
+  setTimeout(() => {
+    window.print();
+  }, 300);
 }
 
 function renderClassBox() {
@@ -183,5 +205,7 @@ function printClassCertificate(c) {
   const qr = $('cert-qr'); qr.innerHTML = '';
   new QRCode(qr, { text: `XAC NHAN: Tap the lop ${c.lop} - Dat ${award} Cuoc thi Phap Luat 2026`, width: 90, height: 90 });
   
-  setTimeout(() => { window.print(); }, 300);
+  setTimeout(() => {
+    window.print();
+  }, 300);
 }
