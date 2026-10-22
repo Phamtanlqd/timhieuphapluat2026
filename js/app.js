@@ -135,7 +135,6 @@ async function showRankings() {
 async function loadRankings() {
   const tbody = $('ranking-table-body');
   try {
-    // Tự động lấy khóa quản trị đã lưu trong trình duyệt (nếu có) để vượt qua trạng thái ẩn
     const adminKey = sessionStorage.getItem('adminKey') || '';
     const d = await api('ranking', { key: adminKey });
     
@@ -218,7 +217,7 @@ function printCertificate(r) {
   
   setTimeout(() => {
     window.print();
-  }, 300);
+  }, 600);
 }
 
 function renderClassBox() {
@@ -271,5 +270,5 @@ function printClassCertificate(c) {
   
   setTimeout(() => {
     window.print();
-  }, 300);
+  }, 600);
 }
