@@ -113,3 +113,10 @@ body.in-exam .header-banner h3{font-size:1rem;margin:0!important}
   .exam-top{padding:10px 12px;top:6px}.student-chip .avatar{flex-basis:36px;height:36px}
   .opt-btn{padding:12px}.opt-letter{flex-basis:34px;height:34px}
 }
+/* ---------- Giấy chứng nhận (In ấn) ---------- */
+#certificate-print-area{display:none}
+@media print{
+  body *{visibility:hidden}
+  #certificate-print-area,#certificate-print-area *{visibility:visible}
+  #certificate-print-area{position:absolute;left:0;top:0;width:100%;display:block!important}
+}
