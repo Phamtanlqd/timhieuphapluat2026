@@ -88,40 +88,32 @@ body.in-exam .header-banner h3{font-size:1rem;margin:0!important}
 .rank-chip{display:inline-grid;place-items:center;min-width:34px;height:34px;border-radius:50%;font-weight:800;background:#e2e8f0;color:#334155}
 .rank-chip.r1{background:#fbbf24;color:#78350f}.rank-chip.r2{background:#cbd5e1;color:#1e293b}.rank-chip.r3{background:#f4a261;color:#7c2d12}
 
-/* ---------- Giấy chứng nhận (In ấn tối ưu tuyệt đối) ---------- */
+/* ---------- Giấy chứng nhận (Mẫu ẩn phục vụ xuất PDF) ---------- */
 #certificate-print-area {
   display: none;
+  background: #fff;
+  width: 1000px;
+  height: 700px;
 }
 
-@media print {
-  @page {
-    size: A4 landscape;
-    margin: 0;
-  }
-  body > *:not(#certificate-print-area) {
-    display: none !important;
-  }
-  #certificate-print-area {
-    display: block !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    background: #fff !important;
-    z-index: 999999;
-    text-align: center;
-  }
-  .cert-border {
-    margin: 15px auto !important;
-    transform: scale(0.92);
-    transform-origin: center;
-    box-shadow: none !important;
-  }
+.cert-border {
+  width: 1000px;
+  height: 700px;
+  padding: 30px;
+  border: 15px solid #003366;
+  background: #fffdf7;
+  margin: auto;
+  position: relative;
+  box-sizing: border-box;
 }
 
-.cert-border{width:1000px;height:700px;padding:30px;border:15px solid #003366;background:#fffdf7;margin:auto;position:relative;box-sizing:border-box}
-.cert-inner-border{border:3px solid #ffcc00;height:100%;padding:30px;text-align:center;box-sizing:border-box}
+.cert-inner-border {
+  border: 3px solid #ffcc00;
+  height: 100%;
+  padding: 30px;
+  text-align: center;
+  box-sizing: border-box;
+}
 
 /* ---------- Trang quản trị ---------- */
 .card-fluent{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 2px 8px rgba(15,23,42,.05)}
