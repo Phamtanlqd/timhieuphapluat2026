@@ -120,3 +120,29 @@ body.in-exam .header-banner h3{font-size:1rem;margin:0!important}
   #certificate-print-area,#certificate-print-area *{visibility:visible}
   #certificate-print-area{position:absolute;left:0;top:0;width:100%;display:block!important}
 }
+:root{
+  --navy:#0b2a5b;--navy2:#143a7a;--blue:#2563EB;--red:#d62828;--gold:#f4b400;
+  --ink:#0f172a;--muted:#64748b;--line:#e5eaf3;--success:#10B981;--warning:#F59E0B;--danger:#EF4444;
+  --primary-color:#0b2a5b;--secondary-color:#d62828;--accent-gold:#f4b400;
+}
+*{box-sizing:border-box}
+body{font-family:'Be Vietnam Pro','Segoe UI',Roboto,Arial,sans-serif;color:var(--ink);min-height:100vh;
+  background:radial-gradient(1200px 500px at 10% -10%,#dbe7ff 0%,transparent 60%),radial-gradient(900px 400px at 100% 0%,#fff1d6 0%,transparent 55%),#f3f6fc}
+
+/* ---------- Header ---------- */
+.header-banner{position:relative;overflow:hidden;color:#fff;padding:36px 15px 40px;border-bottom:5px solid var(--gold);
+  background:linear-gradient(135deg,#071a3d 0%,var(--navy) 45%,var(--navy2) 100%);box-shadow:0 10px 30px rgba(7,26,61,.25)}
+.header-banner::before,.header-banner::after{content:"";position:absolute;border-radius:50%;pointer-events:none}
+.header-banner::before{width:340px;height:340px;right:-90px;top:-150px;background:radial-gradient(circle,rgba(244,180,0,.28),transparent 70%)}
+.header-banner::after{width:280px;height:280px;left:-90px;bottom:-170px;background:radial-gradient(circle,rgba(96,165,250,.28),transparent 70%)}
+.header-banner .container{position:relative;z-index:1}
+.header-banner h1{font-weight:800;letter-spacing:.5px;text-shadow:0 2px 12px rgba(0,0,0,.25)}
+.header-chips{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-top:1rem}
+.header-chips span{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:.3rem .9rem;font-size:.85rem;backdrop-filter:blur(6px)}
+body.in-exam .header-banner{padding:10px 15px;border-bottom-width:3px}
+body.in-exam .header-banner h1,body.in-exam .header-banner p,body.in-exam .header-chips{display:none}
+body.in-exam .header-banner h3{font-size:1rem;margin:0!important}
+
+/* ---------- Thẻ & nút ---------- */
+.card-custom{border:1px solid rgba(15,35,80,.06);border-radius:18px;background:#fff;box-shadow:0 10px 30px rgba(15,35,80,.08)}
+.btn{border-radius:12px;font-
