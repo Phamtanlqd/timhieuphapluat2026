@@ -209,6 +209,8 @@ async function triggerAppScriptRankings() {
 // Lý do bản cũ không ra file: mẫu bị ẩn bằng opacity:0 / z-index âm nên html2canvas chụp ra trang trống,
 // ngoài ra còn lệch vị trí khi trang đang cuộn và mã QR chưa kịp vẽ. Bản này hiển thị mẫu tạm thời
 // ở góc trên trái (có lớp nền trắng che phía sau), đợi QR/font sẵn sàng rồi mới chụp.
+// QR chỉ chứa chuỗi ngắn, không dấu: thư viện qrcodejs báo "code length overflow" với chuỗi dài hoặc có tiếng Việt có dấu (UTF-8)
+const toAscii = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^\x20-\x7E]/g, '');
 async function waitForCert(el) {
   if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
   const imgs = Array.from(el.querySelectorAll('img'));
@@ -231,7 +233,8 @@ async function exportCertificate(c, btn) {
     $('cert-award').textContent = c.award || '';
     $('cert-date').textContent = CERT_DATE;
     const qr = $('cert-qr'); qr.innerHTML = '';
-    new QRCode(qr, { text: c.qrText, width: 90, height: 90 });
+    try { new QRCode(qr, { text: String(c.qrText).slice(0, 60), width: 90, height: 90, correctLevel: QRCode.CorrectLevel.M }); }
+    catch (qrErr) { qr.innerHTML = ''; console.warn('Không tạo được mã QR, vẫn xuất giấy không có QR:', qrErr); }
     document.body.appendChild(cover);
     window.scrollTo(0, 0);
     el.style.cssText = 'display:block;position:fixed;left:0;top:0;width:1000px;height:700px;z-index:99999;background:#fff;opacity:1;visibility:visible';
@@ -258,7 +261,7 @@ function printCertificate(r, btn) {
   const award = r.giai.split(' - ')[0];
   exportCertificate({
     name: r.hoTen, cls: r.lop, award,
-    qrText: `XAC NHAN: ${r.hoTen || ''} - Lop ${r.lop || ''} - Dat ${award} Cuoc thi Phap Luat 2026`,
+    qrText: `PL2026|${toAscii(r.ma)}|${toAscii(r.hoTen).slice(0, 24)}|${toAscii(r.lop)}|H${r.hang || ''}`,
     fileName: `GiayChungNhan_${(r.hoTen || 'ThiSinh').replace(/\s+/g, '_')}_${r.lop || ''}.pdf`
   }, btn);
 }
@@ -307,7 +310,7 @@ function printClassCertificate(c, btn) {
   const award = c.giai.split(' - ')[0];
   exportCertificate({
     name: 'Tập thể lớp ' + (c.lop || ''), cls: c.lop, award,
-    qrText: `XAC NHAN: Tap the lop ${c.lop || ''} - Dat ${award} Cuoc thi Phap Luat 2026`,
+    qrText: `PL2026|TAP THE|${toAscii(c.lop)}|H${c.hang || 1}`,
     fileName: `GiayKhen_TapThe_Lop_${c.lop || ''}.pdf`
   }, btn);
 }
