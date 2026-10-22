@@ -44,6 +44,7 @@ $('btnExport').onclick = async () => {
   const lop = [['Hạng', 'Lớp', 'Số TS tham gia', 'Sĩ số', 'Tỷ lệ (%)', 'TB số câu đúng', 'TB thời gian (giây)', 'Giải thưởng']]
     .concat(d.lop.map(c => [c.hang, c.lop, c.soHS, c.siSo, c.tyLe, c.tbDung, c.tbTg, c.giai]));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(lop), 'XepHangLop');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(advRows(d.vong)), 'VongTiep');
   XLSX.writeFile(wb, 'KetQua_PhapLuat_2026.xlsx');
 };
 if (KEY) enter();
@@ -55,4 +56,27 @@ $('btnSetKey').onclick = async () => {
   await call('admin_setkey', { newKey: a });
   KEY = a; sessionStorage.setItem('adminKey', a); $('newKey').value = $('newKey2').value = '';
   msg('Đã đổi khóa quản trị. Hãy ghi nhớ khóa mới.');
+};
+
+/* ---- Danh sách vào vòng tiếp theo ---- */
+let advData = null;
+const advRows = list => [['Lớp', 'Hạng trong lớp', 'Mã HS', 'Họ tên', 'Số câu đúng', 'Thời gian (giây)', 'Dự đoán', 'Sai lệch', 'Hạng toàn trường', 'Giải thưởng']]
+  .concat(list.map(x => [x.lop, x.hangLop, x.ma, x.hoTen, x.dung, x.tg, x.du, x.sl, x.hangTruong, x.giai || '']));
+async function loadAdv() {
+  advData = await call('admin_advancers');
+  const b = $('advBadge'); b.classList.remove('d-none');
+  b.className = 'pill ms-2 ' + (advData.finalized ? 'ok' : 'wait'); b.textContent = advData.finalized ? 'Đã chốt' : 'Tạm thời';
+  $('advWarn').textContent = advData.thieu.length
+    ? 'Lớp chưa đủ ' + advData.n + ' thí sinh: ' + advData.thieu.map(t => `${t.lop} (${t.co}/${advData.n}, sĩ số ${t.siSo})`).join('; ')
+    : '';
+  $('advBody').innerHTML = advData.list.map(x => `<tr><td><b>${esc(x.lop)}</b></td><td>${x.hangLop}</td><td>${esc(x.ma)}</td><td>${esc(x.hoTen)}</td>
+    <td>${x.dung}</td><td>${x.tg}s</td><td>${x.sl}</td><td>${x.hangTruong}</td><td>${esc(x.giai)}</td></tr>`).join('')
+    || '<tr><td colspan="9" class="text-center text-muted">Chưa có dữ liệu.</td></tr>';
+}
+$('btnAdv').onclick = loadAdv;
+$('btnAdvXls').onclick = async () => {
+  if (!advData) await loadAdv();
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(advRows(advData.list)), 'VongTiep');
+  XLSX.writeFile(wb, 'DanhSach_VongTiepTheo_2026.xlsx');
 };
