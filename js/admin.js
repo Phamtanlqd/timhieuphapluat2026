@@ -17,6 +17,7 @@ async function refresh() {
   const s = await call('admin_stats');
   $('stateBadge').className = 'pill ' + (s.open ? 'ok' : 'off');
   $('stateBadge').textContent = s.open ? 'Đang mở' : (s.finalized ? 'Đã khóa - đã chốt giải' : 'Đã khóa');
+  $('rankBadge').className = 'pill ms-2 ' + (s.rankPublic ? 'ok' : 'off'); $('rankBadge').textContent = s.rankPublic ? 'Đang công khai' : 'Đang ẩn';
   const card = (t, n, c) => `<div class="col-6 col-md-3"><div class="card-fluent stat"><div class="text-muted small">${t}</div><div class="n" style="color:${c}">${n}</div></div></div>`;
   $('stats').innerHTML = card('Tổng học sinh', s.hocSinh, 'var(--ink)') + card('Chưa thi', s.trangThai.CHUA_THI || 0, 'var(--muted)') +
     card('Đang thi', s.trangThai.DANG_THI || 0, 'var(--warning)') + card('Đã thi', s.trangThai.DA_THI || 0, 'var(--success)');
@@ -109,3 +110,6 @@ $('btnAttXls').onclick = async () => {
     .concat(attData.absent.map(x => [x.lop, x.ma, x.hoTen, x.khoi, x.tt]))), 'ChuaThi');
   XLSX.writeFile(wb, 'ThongKe_ThamGia_2026.xlsx');
 };
+
+$('btnRankHide').onclick = async () => { if (!sure('Ẩn bảng xếp hạng với thí sinh?')) return; await call('admin_rankpublic', { pub: false }); msg('Đã ẩn bảng xếp hạng.'); refresh(); };
+$('btnRankShow').onclick = async () => { if (!sure('Công khai bảng xếp hạng cho tất cả thí sinh?')) return; await call('admin_rankpublic', { pub: true }); msg('Đã công khai bảng xếp hạng.'); refresh(); };
