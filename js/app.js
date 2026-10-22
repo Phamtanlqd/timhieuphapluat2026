@@ -235,9 +235,9 @@ async function drawCertificate(c) {
   const cx = W / 2, line = (t, y, w, size, color, maxW) => { x.fillStyle = color; certFit(x, t, w, size, maxW || 800); x.fillText(t, cx, y); };
   line('TRƯỜNG THPT CHUYÊN LÊ QUÝ ĐÔN', 112, 700, 21, '#111827');
   line('GIẤY CHỨNG NHẬN', 180, 800, 42, '#dc3545');
-  line('Chứng nhận thí sinh / tập thể:', 236, 400, 18, '#111827');
-  line(c.name || '', 300, 800, 40, '#0d6efd', 780);
-  line('Lớp: ' + (c.cls || ''), 345, 700, 21, '#111827');
+  line(c.label || 'Chứng nhận thí sinh:', 236, 400, 18, '#111827');
+  line(c.name || '', c.cls ? 300 : 316, 800, c.cls ? 40 : 44, '#0d6efd', 780);
+  if (c.cls) line('Lớp: ' + c.cls, 345, 700, 21, '#111827');   // giấy tập thể: tên đã có số lớp nên không in lặp
   line('Đã đạt thành tích xuất sắc trong cuộc thi Trực Tuyến', 396, 400, 19, '#111827');
   line('“Tìm Hiểu Pháp Luật Năm 2026”', 430, 700, 22, '#111827');
   const aw = certFit(x, c.award || '', 800, 26, 640); x.font = `800 ${aw}px ${CERT_FONT}`;
@@ -296,7 +296,7 @@ function printCertificate(r, btn) {
   if (!r || !r.giai) { alert('Thí sinh này chưa có kết quả xếp giải! (Cần bấm "Khóa cuộc thi & trao giải" hoặc "Chốt lại giải thưởng" trong trang quản trị trước.)'); return; }
   const award = r.giai.split(' - ')[0];
   exportCertificate({
-    name: r.hoTen, cls: r.lop, award,
+    name: r.hoTen, cls: r.lop, label: 'Chứng nhận thí sinh:', award,
     qrText: `PL2026|${toAscii(r.ma)}|${toAscii(r.hoTen).slice(0, 24)}|${toAscii(r.lop)}|H${r.hang || ''}`,
     fileName: `GiayChungNhan_${(r.hoTen || 'ThiSinh').replace(/\s+/g, '_')}_${r.lop || ''}.pdf`
   }, btn);
@@ -345,7 +345,7 @@ function printClassCertificate(c, btn) {
   if (!c || !c.giai) return;
   const award = c.giai.split(' - ')[0];
   exportCertificate({
-    name: 'Tập thể lớp ' + (c.lop || ''), cls: c.lop, award,
+    name: 'Tập thể lớp ' + (c.lop || ''), cls: '', label: 'Chứng nhận tập thể:', award,
     qrText: `PL2026|TAP THE|${toAscii(c.lop)}|H${c.hang || 1}`,
     fileName: `GiayKhen_TapThe_Lop_${c.lop || ''}.pdf`
   }, btn);
