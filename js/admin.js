@@ -80,3 +80,32 @@ $('btnAdvXls').onclick = async () => {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(advRows(advData.list)), 'VongTiep');
   XLSX.writeFile(wb, 'DanhSach_VongTiepTheo_2026.xlsx');
 };
+
+/* ---- Thống kê tham gia theo lớp ---- */
+let attData = null;
+async function loadAtt() {
+  attData = await call('admin_attendance');
+  const t = attData.classes.reduce((a, c) => ({ s: a.s + c.siSo, d: a.d + c.daThi }), { s: 0, d: 0 });
+  $('attSum').textContent = `Toàn trường: ${t.d}/${t.s} học sinh đã thi (${t.s ? Math.round(t.d / t.s * 1000) / 10 : 0}%), ${attData.absent.length} chưa hoàn thành, ${attData.classes.length} lớp.`;
+  $('attBody').innerHTML = attData.classes.map(c => `<tr><td><b>${esc(c.lop)}</b></td><td>${c.siSo}</td><td class="text-success fw-bold">${c.daThi}</td>
+    <td class="text-warning fw-bold">${c.dangThi}</td><td class="${c.chuaThi ? 'text-danger fw-bold' : ''}">${c.chuaThi}</td><td>${c.tyLe}%</td></tr>`).join('');
+  const sel = $('attFilter'), cur = sel.value;
+  sel.innerHTML = '<option value="">Tất cả các lớp</option>' + attData.classes.filter(c => c.chuaThi + c.dangThi).map(c => `<option>${esc(c.lop)}</option>`).join('');
+  sel.value = cur; renderAbs();
+}
+function renderAbs() {
+  const f = $('attFilter').value, list = attData.absent.filter(x => !f || x.lop === f);
+  $('absBody').innerHTML = list.map(x => `<tr><td>${esc(x.lop)}</td><td>${esc(x.ma)}</td><td>${esc(x.hoTen)}</td><td>${x.tt === 'DANG_THI' ? 'Đang thi / bỏ dở' : 'Chưa thi'}</td></tr>`).join('')
+    || '<tr><td colspan="4" class="text-center text-muted">Không có.</td></tr>';
+}
+$('btnAtt').onclick = loadAtt;
+$('attFilter').onchange = () => attData && renderAbs();
+$('btnAttXls').onclick = async () => {
+  await loadAtt();
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Lớp', 'Sĩ số', 'Đã thi', 'Đang thi', 'Chưa thi', 'Tỷ lệ (%)']]
+    .concat(attData.classes.map(c => [c.lop, c.siSo, c.daThi, c.dangThi, c.chuaThi, c.tyLe]))), 'ThongKeLop');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Lớp', 'Mã HS', 'Họ tên', 'Khối', 'Trạng thái']]
+    .concat(attData.absent.map(x => [x.lop, x.ma, x.hoTen, x.khoi, x.tt]))), 'ChuaThi');
+  XLSX.writeFile(wb, 'ThongKe_ThamGia_2026.xlsx');
+};
