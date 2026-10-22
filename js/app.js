@@ -126,7 +126,7 @@ async function submitExam(auto) {
   }
 }
 
-/* ---------- Bảng xếp hạng & In bằng (Đã bảo vệ an toàn tuyệt đối) ---------- */
+/* ---------- Bảng xếp hạng & In bằng (Tự động nhận diện quyền Admin) ---------- */
 async function showRankings() {
   show('section-rankings'); clearInterval(rankTimer);
   await loadRankings(); rankTimer = setInterval(() => { if (!document.hidden) loadRankings(); }, RANKING_REFRESH_MS);
@@ -135,7 +135,9 @@ async function showRankings() {
 async function loadRankings() {
   const tbody = $('ranking-table-body');
   try {
-    const d = await api('ranking');
+    // Tự động lấy khóa quản trị đã lưu trong trình duyệt (nếu có) để vượt qua trạng thái ẩn
+    const adminKey = sessionStorage.getItem('adminKey') || '';
+    const d = await api('ranking', { key: adminKey });
     
     if (!d || d.locked) {
       $('rank-badge').textContent = '🔒 Bảng xếp hạng đang tạm ẩn theo yêu cầu của Ban tổ chức.';
