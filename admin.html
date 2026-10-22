@@ -1,21 +1,33 @@
 <!DOCTYPE html>
-<html lang="vi"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Quản trị - Pháp luật 2026</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="css/style.css" rel="stylesheet">
-</head><body>
-<nav class="topbar py-2"><div class="container d-flex justify-content-between align-items-center">
-  <a class="navbar-brand" href="index.html">⚖️ Quản trị</a><a href="#" id="btnOut" class="small text-muted d-none">Thoát</a></div></nav>
+</head>
+<body>
+<nav class="topbar py-2">
+  <div class="container d-flex justify-content-between align-items-center">
+    <a class="navbar-brand" href="index.html">⚖️ Quản trị</a>
+    <a href="#" id="btnOut" class="small text-muted d-none">Thoát</a>
+  </div>
+</nav>
 <div class="container py-4" style="max-width:960px">
+  <!-- Hộp nhập khóa quản trị -->
   <div id="keyBox" class="card-fluent p-4 mx-auto" style="max-width:420px">
     <h4 class="fw-bold">Khóa quản trị</h4>
     <input id="key" type="password" class="form-control my-3" placeholder="Nhập khóa Admin">
     <button id="btnKey" class="btn btn-primary w-100">Truy cập</button>
   </div>
+
+  <!-- Bảng điều khiển chính -->
   <div id="panel" class="d-none">
     <div id="msg" class="alert d-none"></div>
     <div class="row g-3 mb-3" id="stats"></div>
+
+    <!-- Trạng thái cuộc thi -->
     <div class="card-fluent p-4 mb-3">
       <h5 class="fw-bold">Cuộc thi <span id="stateBadge" class="pill wait ms-2"></span></h5>
       <p class="text-muted small">Khóa cuộc thi sẽ tự động chốt kết quả và ghi giải thưởng vào sheet KET_QUA. Mở lại sẽ xóa kết quả xếp hạng/giải thưởng đã chốt.</p>
@@ -26,20 +38,26 @@
         <button class="btn btn-outline-primary" id="btnExport">📥 Xuất Excel</button>
       </div>
     </div>
+
+    <!-- Bảng xếp hạng cho thí sinh (Ẩn / Công khai) -->
     <div class="card-fluent p-4 mb-3">
-      <h5 class="fw-bold">Bảng xếp hạng cho thí sinh <span id="rankBadge" class="pill wait ms-2"></span></h5>
+      <h5 class="fw-bold">Bảng xếp hạng cho thí sinh <span id="rankPubBadge" class="pill wait ms-2"></span></h5>
       <p class="text-muted small">Khi ẩn, thí sinh chỉ thấy "Kết quả chưa được công bố". Ban tổ chức vẫn xem và in giấy chứng nhận được sau khi đăng nhập trang quản trị trên cùng trình duyệt.</p>
       <div class="d-flex flex-wrap gap-2">
-        <button class="btn btn-danger" id="btnRankHide">🙈 Ẩn bảng xếp hạng</button>
-        <button class="btn btn-success" id="btnRankShow">👁 Công khai bảng xếp hạng</button>
+        <button class="btn btn-danger" id="btnHideRank">🔒 Ẩn bảng xếp hạng</button>
+        <button class="btn btn-success" id="btnShowRank">🔓 Công khai bảng xếp hạng</button>
       </div>
     </div>
+
+    <!-- Quản lý đề thi -->
     <div class="card-fluent p-4 mb-3">
       <h5 class="fw-bold">Đề thi</h5>
       <p class="text-muted small">Sửa trực tiếp trong Google Sheets (DE_THI, CAU_HOI_PHU), sau đó bấm cập nhật để kiểm tra và làm mới.</p>
       <button class="btn btn-primary" id="btnRefresh">🔄 Cập nhật đề thi</button>
       <div id="examInfo" class="small mt-2"></div>
     </div>
+
+    <!-- Đổi khóa quản trị -->
     <div class="card-fluent p-4 mb-3">
       <h5 class="fw-bold">Đổi khóa quản trị</h5>
       <p class="text-muted small">Khóa mới có hiệu lực ngay (tối thiểu 8 ký tự).</p>
@@ -49,6 +67,8 @@
       </div>
       <button class="btn btn-outline-primary mt-2" id="btnSetKey">Đổi khóa</button>
     </div>
+
+    <!-- Vòng tiếp theo -->
     <div class="card-fluent p-4 mb-3">
       <h5 class="fw-bold">Danh sách vào vòng tiếp theo <span id="advBadge" class="pill wait ms-2 d-none"></span></h5>
       <p class="text-muted small">Mỗi lớp lấy các thí sinh cao nhất (mặc định 2), xếp theo tiêu chí chung: số câu đúng, thời gian, sai lệch câu hỏi phụ, nộp sớm. Khi khóa cuộc thi, danh sách được ghi vào sheet VONG_TIEP.</p>
@@ -64,6 +84,8 @@
         </table>
       </div>
     </div>
+
+    <!-- Thống kê tham gia theo lớp -->
     <div class="card-fluent p-4 mb-3">
       <h5 class="fw-bold">Thống kê tham gia theo lớp</h5>
       <p class="text-muted small">Số học sinh đã thi, đang thi, chưa thi của từng lớp và danh sách học sinh chưa tham gia (tính theo cột TrangThai của sheet HOC_SINH).</p>
@@ -87,10 +109,15 @@
         </table>
       </div>
     </div>
+
+    <!-- Reset trạng thái -->
     <div class="card-fluent p-4">
       <h5 class="fw-bold">Reset trạng thái học sinh</h5>
       <p class="text-muted small">Reset sẽ đổi TrangThai về CHUA_THI và xóa kết quả đã lưu của học sinh đó.</p>
-      <div class="input-group mb-3" style="max-width:420px"><input id="maHS" class="form-control" placeholder="Mã học sinh"><button class="btn btn-outline-primary" id="btnOne">Reset 1 học sinh</button></div>
+      <div class="input-group mb-3" style="max-width:420px">
+        <input id="maHS" class="form-control" placeholder="Mã học sinh">
+        <button class="btn btn-outline-primary" id="btnOne">Reset 1 học sinh</button>
+      </div>
       <div class="d-flex flex-wrap gap-2">
         <button class="btn btn-outline-danger" id="btnDang">Reset các bài đang làm dở</button>
         <button class="btn btn-danger" id="btnAll">Reset TOÀN BỘ</button>
@@ -98,6 +125,10 @@
     </div>
   </div>
 </div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/admin.js"></script>
-</body></html>
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
