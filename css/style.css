@@ -33,7 +33,7 @@ body.in-exam .header-banner h3{font-size:1rem;margin:0!important}
 .form-control:focus{border-color:var(--blue);box-shadow:0 0 0 .25rem rgba(37,99,235,.15)}
 .card-custom h4{letter-spacing:.3px}
 
-/* ---------- Thanh trạng thái làm bài (dính trên cùng) ---------- */
+/* ---------- Thanh trạng thái làm bài ---------- */
 .exam-top{position:sticky;top:10px;z-index:30;padding:14px 18px;border-radius:18px;background:rgba(255,255,255,.92);
   backdrop-filter:blur(10px);border:1px solid rgba(15,35,80,.08);box-shadow:0 10px 30px rgba(15,35,80,.12)}
 .student-chip{display:flex;align-items:center;gap:.75rem;min-width:0}
@@ -88,13 +88,38 @@ body.in-exam .header-banner h3{font-size:1rem;margin:0!important}
 .rank-chip{display:inline-grid;place-items:center;min-width:34px;height:34px;border-radius:50%;font-weight:800;background:#e2e8f0;color:#334155}
 .rank-chip.r1{background:#fbbf24;color:#78350f}.rank-chip.r2{background:#cbd5e1;color:#1e293b}.rank-chip.r3{background:#f4a261;color:#7c2d12}
 
-/* ---------- Giấy chứng nhận (giữ nguyên) ---------- */
-#certificate-print-area{display:none}
-@media print{
-  body *{visibility:hidden}
-  #certificate-print-area,#certificate-print-area *{visibility:visible}
-  #certificate-print-area{position:absolute;left:0;top:0;width:100%;display:block!important}
+/* ---------- Giấy chứng nhận (In ấn tối ưu tuyệt đối) ---------- */
+#certificate-print-area {
+  display: none;
 }
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+  body > *:not(#certificate-print-area) {
+    display: none !important;
+  }
+  #certificate-print-area {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: #fff !important;
+    z-index: 999999;
+    text-align: center;
+  }
+  .cert-border {
+    margin: 15px auto !important;
+    transform: scale(0.92);
+    transform-origin: center;
+    box-shadow: none !important;
+  }
+}
+
 .cert-border{width:1000px;height:700px;padding:30px;border:15px solid #003366;background:#fffdf7;margin:auto;position:relative;box-sizing:border-box}
 .cert-inner-border{border:3px solid #ffcc00;height:100%;padding:30px;text-align:center;box-sizing:border-box}
 
@@ -113,36 +138,3 @@ body.in-exam .header-banner h3{font-size:1rem;margin:0!important}
   .exam-top{padding:10px 12px;top:6px}.student-chip .avatar{flex-basis:36px;height:36px}
   .opt-btn{padding:12px}.opt-letter{flex-basis:34px;height:34px}
 }
-/* ---------- Giấy chứng nhận (In ấn) ---------- */
-#certificate-print-area{display:none}
-@media print{
-  body *{visibility:hidden}
-  #certificate-print-area,#certificate-print-area *{visibility:visible}
-  #certificate-print-area{position:absolute;left:0;top:0;width:100%;display:block!important}
-}
-:root{
-  --navy:#0b2a5b;--navy2:#143a7a;--blue:#2563EB;--red:#d62828;--gold:#f4b400;
-  --ink:#0f172a;--muted:#64748b;--line:#e5eaf3;--success:#10B981;--warning:#F59E0B;--danger:#EF4444;
-  --primary-color:#0b2a5b;--secondary-color:#d62828;--accent-gold:#f4b400;
-}
-*{box-sizing:border-box}
-body{font-family:'Be Vietnam Pro','Segoe UI',Roboto,Arial,sans-serif;color:var(--ink);min-height:100vh;
-  background:radial-gradient(1200px 500px at 10% -10%,#dbe7ff 0%,transparent 60%),radial-gradient(900px 400px at 100% 0%,#fff1d6 0%,transparent 55%),#f3f6fc}
-
-/* ---------- Header ---------- */
-.header-banner{position:relative;overflow:hidden;color:#fff;padding:36px 15px 40px;border-bottom:5px solid var(--gold);
-  background:linear-gradient(135deg,#071a3d 0%,var(--navy) 45%,var(--navy2) 100%);box-shadow:0 10px 30px rgba(7,26,61,.25)}
-.header-banner::before,.header-banner::after{content:"";position:absolute;border-radius:50%;pointer-events:none}
-.header-banner::before{width:340px;height:340px;right:-90px;top:-150px;background:radial-gradient(circle,rgba(244,180,0,.28),transparent 70%)}
-.header-banner::after{width:280px;height:280px;left:-90px;bottom:-170px;background:radial-gradient(circle,rgba(96,165,250,.28),transparent 70%)}
-.header-banner .container{position:relative;z-index:1}
-.header-banner h1{font-weight:800;letter-spacing:.5px;text-shadow:0 2px 12px rgba(0,0,0,.25)}
-.header-chips{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-top:1rem}
-.header-chips span{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:.3rem .9rem;font-size:.85rem;backdrop-filter:blur(6px)}
-body.in-exam .header-banner{padding:10px 15px;border-bottom-width:3px}
-body.in-exam .header-banner h1,body.in-exam .header-banner p,body.in-exam .header-chips{display:none}
-body.in-exam .header-banner h3{font-size:1rem;margin:0!important}
-
-/* ---------- Thẻ & nút ---------- */
-.card-custom{border:1px solid rgba(15,35,80,.06);border-radius:18px;background:#fff;box-shadow:0 10px 30px rgba(15,35,80,.08)}
-.btn{border-radius:12px;font-
