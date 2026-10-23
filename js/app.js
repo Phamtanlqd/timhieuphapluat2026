@@ -1,8 +1,16 @@
 const $ = id => document.getElementById(id);
 const el = (t, c) => { const e = document.createElement(t); if (c) e.className = c; return e; };
-const SECTIONS = ['section-login', 'section-exam', 'section-result', 'section-rankings'];
+const SECTIONS = ['section-login', 'section-exam', 'section-result', 'section-rankings', 'section-mycert'];
 const show = id => SECTIONS.forEach(s => $(s).classList.toggle('d-none', s !== id));
 
+/* Mã thiết bị ngẫu nhiên (lưu trong trình duyệt) để ban tổ chức rà soát trường hợp một máy thi cho nhiều tài khoản */
+function deviceId() {
+  try {
+    let d = localStorage.getItem('dev_id');
+    if (!d) { d = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (String(Math.random()).slice(2) + Date.now()); localStorage.setItem('dev_id', d); }
+    return d.slice(0, 40);
+  } catch (e) { return window.__dev || (window.__dev = 'tmp-' + Math.random().toString(36).slice(2)); }
+}
 let session = null, questions = [], byId = {}, layout = [], ans = {}, duDoan = '', phuText = '';
 let idx = 0, total = 1800, endAt = 0, timerId = null, submitting = false, active = false, tabCount = 0;
 let rankRows = [], classRows = [], rankTimer = null;
@@ -10,91 +18,19 @@ const draftKey = () => 'draft_' + session.hs.ma;
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const save = () => { try { localStorage.setItem(draftKey(), JSON.stringify({ layout, ans, du: duDoan })); } catch {} };
 
-/* ---------- Đăng nhập thông minh (Hỗ trợ học sinh thi xong vào nhận Giấy chứng nhận) ---------- */
+/* ---------- Đăng nhập + bắt đầu thi ---------- */
 $('form-login').onsubmit = async e => {
   e.preventDefault();
   const box = $('login-alert'), btn = $('btn-login'), old = btn.innerHTML;
   box.classList.add('d-none'); btn.disabled = true; btn.textContent = 'Đang kiểm tra...';
-  
   try {
-    // 1. Đăng nhập lấy thông tin tài khoản học sinh
-    session = await api('login', { ma: $('login-code').value, mk: $('login-pass').value });
-    
-    // 2. Kiểm tra nếu học sinh này đã thi xong từ trước (Backend ghi nhận hs.daNop hoặc hs.status)
-    if (session && session.hs && (session.hs.daNop || session.hs.daThi || session.hs.finished)) {
-      renderFinishedUserResult();
-      return;
-    }
-
-    // 3. Nếu chưa thi, tiến hành gọi start để vào thi
-    try {
-      const startData = await api('start', { token: session.token }, 3);
-      begin(startData);
-    } catch (startErr) {
-      const msg = (startErr.message || '').toLowerCase();
-      // Nếu Backend chặn thi do đã hoàn thành/khóa thi -> Tự động chuyển sang màn hình nhận Giấy chứng nhận
-      if (msg.includes('hoàn thành') || msg.includes('đã nộp') || msg.includes('kết thúc') || msg.includes('khóa') || msg.includes('thi lại')) {
-        renderFinishedUserResult();
-      } else {
-        throw startErr;
-      }
-    }
+    session = await api('login', { ma: $('login-code').value, mk: $('login-pass').value, dev: deviceId() });
+    if (session.done) { await showMyCert(); return; }   // đã thi xong: chỉ vào để tải giấy chứng nhận của mình
+    begin(await api('start', { token: session.token, dev: deviceId() }, 3));
   } catch (err) {
-    box.textContent = err.message; 
-    box.classList.remove('d-none');
-  } finally { 
-    btn.disabled = false; 
-    btn.innerHTML = old; 
-  }
+    box.textContent = err.message; box.classList.remove('d-none');
+  } finally { btn.disabled = false; btn.innerHTML = old; }
 };
-
-/* ---------- Hàm hiển thị màn hình kết quả & Tải giấy chứng nhận cho cá nhân ---------- */
-async function renderFinishedUserResult() {
-  document.body.classList.remove('in-exam');
-  
-  // Thử lấy kết quả thi chi tiết từ API my_result nếu có
-  const myRes = await api('my_result', { token: session.token }).catch(() => null);
-  
-  if (myRes) {
-    $('r-dung').textContent = myRes.soCauDung !== undefined ? myRes.soCauDung : '--';
-    $('r-tong').textContent = myRes.tong !== undefined ? myRes.tong : '30';
-    $('r-time').textContent = fmtTime(myRes.thoiGian || 0);
-  } else {
-    $('r-dung').textContent = 'Đã hoàn thành';
-    $('r-tong').textContent = '30';
-    $('r-time').textContent = '--';
-  }
-  
-  show('section-result');
-  
-  // Tạo nút Tải Giấy Chứng Nhận Của Tôi trên thẻ kết quả
-  const resultCard = document.querySelector('#section-result .card-custom');
-  if (resultCard) {
-    let certBtnDiv = document.getElementById('wrapper-download-my-cert');
-    if (!certBtnDiv) {
-      certBtnDiv = document.createElement('div');
-      certBtnDiv.id = 'wrapper-download-my-cert';
-      certBtnDiv.className = 'mt-3';
-      resultCard.appendChild(certBtnDiv);
-    }
-    
-    certBtnDiv.innerHTML = `<button class="btn btn-warning w-100 fw-bold py-2" id="btn-download-my-cert">
-      <i class="fa-solid fa-file-pdf me-2"></i>Tải Giấy Chứng Nhận Của Tôi
-    </button>`;
-    
-    document.getElementById('btn-download-my-cert').onclick = async function() {
-      const btnSelf = this;
-      const res = myRes || await api('my_result', { token: session.token }).catch(() => null);
-      const studentData = {
-        ma: session.hs ? session.hs.ma : '',
-        hoTen: session.hs ? session.hs.hoTen : '',
-        lop: session.hs ? session.hs.lop : '',
-        giai: (res && res.giai) ? res.giai : 'Chứng nhận tham gia cuộc thi'
-      };
-      printCertificate(studentData, btnSelf);
-    };
-  }
-}
 
 function begin(d) {
   questions = d.questions; phuText = d.phu; total = d.total;
@@ -188,7 +124,7 @@ async function submitExam(auto) {
   const du = /^\d+$/.test(String(duDoan).trim()) ? Number(duDoan) : 0;
   for (;;) {
     try {
-      const r = await api('submit', { token: session.token, answers: ans, duDoan: du }, 4);
+      const r = await api('submit', { token: session.token, answers: ans, duDoan: du, dev: deviceId(), tab: tabCount, scr: screen.width + 'x' + screen.height, ua: navigator.userAgent.slice(0, 160) }, 4);
       active = false; document.body.classList.remove('in-exam'); try { localStorage.removeItem(draftKey()); } catch {}
       $('r-dung').textContent = r.soCauDung; $('r-tong').textContent = r.tong; $('r-time').textContent = fmtTime(r.thoiGian);
       show('section-result'); window.scrollTo(0, 0); return;
@@ -242,7 +178,7 @@ async function loadRankings() {
       const dung = (r && r.dung !== undefined) ? r.dung : 0;
       const tg = (r && r.tg !== undefined) ? r.tg : 0;
       const du = (r && r.du !== undefined) ? r.du : 0;
-      const giai = r && r.giai ? r.giai : 'Đã tham gia';
+      const giai = r && r.giai ? r.giai : 'Chưa tính';
       const topClass = hang <= 3 ? 'top' + hang : '';
       const chipClass = hang <= 3 ? 'r' + hang : '';
 
@@ -250,7 +186,7 @@ async function loadRankings() {
         <td><span class="rank-chip ${chipClass}">${hang}</span></td>
         <td><b>${esc(ma)}</b></td><td>${esc(hoTen)}</td><td>${esc(lop)}</td>
         <td><b class="text-success">${dung}/30</b></td><td>${tg}s</td><td>${du}</td>
-        <td><span class="badge ${r && r.giai ? 'bg-warning text-dark' : 'bg-secondary'} fw-bold">${esc(giai)}</span></td>
+        <td><span class="badge bg-warning text-dark fw-bold">${esc(giai)}</span></td>
         <td><button class="btn btn-sm btn-outline-primary" data-i="${i}"><i class="fa-solid fa-file-pdf me-1"></i>Tải PDF</button></td></tr>`;
     }).join('');
 
@@ -278,16 +214,17 @@ async function triggerAppScriptRankings() {
   }
 }
 
-/* ---------- Thuật toán Canvas Direct-To-PDF sắc nét ---------- */
+/* ---------- Xuất giấy chứng nhận PDF ---------- */
+// Không dùng html2pdf nữa (chụp DOM hay ra trang trắng). Giấy được VẼ trực tiếp lên canvas rồi đóng gói thành PDF 1 trang.
+// QR chỉ chứa chuỗi ngắn, không dấu: qrcodejs báo "code length overflow" với chuỗi dài / tiếng Việt có dấu.
 const toAscii = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^\x20-\x7E]/g, '');
 const CERT_FONT = '"Be Vietnam Pro","Segoe UI",Roboto,Arial,sans-serif';
 
-function certFit(ctx, text, weight, size, maxW) {
+function certFit(ctx, text, weight, size, maxW) {          // thu nhỏ chữ nếu quá dài
   let s = size;
   for (; s > 12; s--) { ctx.font = `${weight} ${s}px ${CERT_FONT}`; if (ctx.measureText(text).width <= maxW) break; }
   return s;
 }
-
 function certQr(text) {
   try {
     const d = document.createElement('div');
@@ -295,7 +232,6 @@ function certQr(text) {
     return d.querySelector('canvas') || d.querySelector('img');
   } catch (e) { console.warn('Không tạo được mã QR, vẫn xuất giấy không có QR:', e); return null; }
 }
-
 async function drawCertificate(c) {
   const W = 1000, H = 700, K = 2;
   const cv = document.createElement('canvas'); cv.width = W * K; cv.height = H * K;
@@ -310,8 +246,8 @@ async function drawCertificate(c) {
   line('GIẤY CHỨNG NHẬN', 180, 800, 42, '#dc3545');
   line(c.label || 'Chứng nhận thí sinh:', 236, 400, 18, '#111827');
   line(c.name || '', c.cls ? 300 : 316, 800, c.cls ? 40 : 44, '#0d6efd', 780);
-  if (c.cls) line('Lớp: ' + c.cls, 345, 700, 21, '#111827');
-  line('Đã đạt thành tích xuất sắc trong cuộc thi Trực Tuyến', 396, 400, 19, '#111827');
+  if (c.cls) line('Lớp: ' + c.cls, 345, 700, 21, '#111827');   // giấy tập thể: tên đã có số lớp nên không in lặp
+  line(c.line1 || 'Đã đạt thành tích xuất sắc trong cuộc thi Trực Tuyến', 396, 400, 19, '#111827');
   line('“Tìm Hiểu Pháp Luật Năm 2026”', 430, 700, 22, '#111827');
   const aw = certFit(x, c.award || '', 800, 26, 640); x.font = `800 ${aw}px ${CERT_FONT}`;
   const tw = x.measureText(c.award || '').width, bw = tw + 90, bh = 54, by = 450;
@@ -324,12 +260,11 @@ async function drawCertificate(c) {
   const rx = 770;
   x.fillStyle = '#111827'; x.textAlign = 'center';
   x.font = `400 16px ${CERT_FONT}`; x.fillText(CERT_DATE, rx, 548);
-  x.font = `800 18px ${CERT_FONT}`; x.fillText('TRƯỜNG THPT CHUYÊN LÊ QUÝ ĐÔN', rx, 584);
+  x.font = `800 18px ${CERT_FONT}`; x.fillText('TRƯỞNG BAN TỔ CHỨC', rx, 584);
   x.font = `700 16px ${CERT_FONT}`; x.fillText('(Đã ký)', rx, 626);
   return cv;
 }
-
-function jpegToPdfBlob(jpeg, pxW, pxH, W, H) {
+function jpegToPdfBlob(jpeg, pxW, pxH, W, H) {                // PDF 1 trang (W x H điểm) chứa 1 ảnh JPEG, không cần thư viện
   const enc = new TextEncoder(), chunks = [], off = [];
   let len = 0;
   const push = b => { const u = typeof b === 'string' ? enc.encode(b) : b; chunks.push(u); len += u.length; };
@@ -345,13 +280,11 @@ function jpegToPdfBlob(jpeg, pxW, pxH, W, H) {
   push(t + `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
   return new Blob(chunks, { type: 'application/pdf' });
 }
-
 function saveBlob(blob, name) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
 }
-
 async function exportCertificate(c, btn) {
   const oldText = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Đang tạo...'; }
@@ -361,20 +294,19 @@ async function exportCertificate(c, btn) {
     const b64 = cv.toDataURL('image/jpeg', 0.95).split(',')[1];
     const bin = atob(b64), jpeg = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) jpeg[i] = bin.charCodeAt(i);
-    saveBlob(jpegToPdfBlob(jpeg, cv.width, cv.height, 750, 525), c.fileName);
+    saveBlob(jpegToPdfBlob(jpeg, cv.width, cv.height, 750, 525), c.fileName);   // 750x525 pt = 1000x700 px, khổ ngang
   } catch (err) {
     alert('Có lỗi khi tạo PDF: ' + (err && err.message ? err.message : err));
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
   }
 }
-
 function printCertificate(r, btn) {
-  if (!r) return;
-  const award = (r && r.giai) ? r.giai.split(' - ')[0] : 'Chứng nhận tham gia cuộc thi';
+  if (!r || !r.giai) { alert('Thí sinh này chưa có kết quả xếp giải! (Cần bấm "Khóa cuộc thi & trao giải" hoặc "Chốt lại giải thưởng" trong trang quản trị trước.)'); return; }
+  const award = r.giai.split(' - ')[0];
   exportCertificate({
     name: r.hoTen, cls: r.lop, label: 'Chứng nhận thí sinh:', award,
-    qrText: `PL2026|${toAscii(r.ma || '')}|${toAscii(r.hoTen || '').slice(0, 24)}|${toAscii(r.lop || '')}|H${r.hang || ''}`,
+    qrText: `PL2026|${toAscii(r.ma)}|${toAscii(r.hoTen).slice(0, 24)}|${toAscii(r.lop)}|H${r.hang || ''}`,
     fileName: `GiayChungNhan_${(r.hoTen || 'ThiSinh').replace(/\s+/g, '_')}_${r.lop || ''}.pdf`
   }, btn);
 }
@@ -426,4 +358,50 @@ function printClassCertificate(c, btn) {
     qrText: `PL2026|TAP THE|${toAscii(c.lop)}|H${c.hang || 1}`,
     fileName: `GiayKhen_TapThe_Lop_${c.lop || ''}.pdf`
   }, btn);
+}
+
+/* ---------- Giấy chứng nhận của tôi (học sinh đã thi): xem trước, tải PDF, in ---------- */
+function printDataUrl(url) {                                   // in bằng khung ẩn, không bị chặn popup
+  const f = document.createElement('iframe');
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(f);
+  const d = f.contentWindow.document; d.open();
+  d.write('<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:0}html,body{margin:0;height:100%}img{width:100%;height:100%;object-fit:contain;display:block}</style></head><body><img id="i"></body></html>');
+  d.close();
+  const img = d.getElementById('i');
+  img.onload = () => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { alert('Không mở được hộp thoại in. Hãy dùng nút Tải PDF rồi in file PDF.'); } setTimeout(() => f.remove(), 120000); };
+  img.src = url;
+}
+async function addCertCard(box, title, spec) {
+  const col = document.createElement('div'); col.className = 'col-lg-6';
+  col.innerHTML = '<div class="border rounded-3 p-3 bg-white h-100"><div class="fw-bold mb-2"></div><div class="text-muted small py-5 cert-wait">Đang tạo giấy chứng nhận...</div><img class="img-fluid border rounded mb-3 d-none" style="max-width:100%;height:auto" alt="Giấy chứng nhận"><div class="d-flex gap-2 justify-content-center"><button class="btn btn-primary btn-sm btn-pdf" disabled><i class="fa-solid fa-file-pdf me-1"></i>Tải PDF</button><button class="btn btn-outline-primary btn-sm btn-print" disabled><i class="fa-solid fa-print me-1"></i>In</button></div></div>';
+  col.querySelector('.fw-bold').textContent = title;
+  box.appendChild(col);
+  const cv = await drawCertificate(spec), url = cv.toDataURL('image/jpeg', 0.92);
+  const img = col.querySelector('img'); img.src = url; img.classList.remove('d-none'); col.querySelector('.cert-wait').remove();
+  const pdf = col.querySelector('.btn-pdf'), prn = col.querySelector('.btn-print');
+  pdf.disabled = prn.disabled = false;
+  pdf.onclick = () => exportCertificate(spec, pdf);
+  prn.onclick = () => printDataUrl(url);
+}
+async function showMyCert() {
+  const c = await api('my_cert', { token: session.token });     // máy chủ chỉ trả dữ liệu của chính tài khoản này
+  $('mc-name').textContent = c.hoTen;
+  $('mc-class').textContent = `Lớp ${c.lop} · Mã HS ${c.ma}`;
+  $('mc-result').innerHTML = `<span class="badge bg-success fs-6 me-1">Đã hoàn thành bài thi</span><span class="badge bg-primary fs-6">${esc(c.soCauDung)}/${esc(c.tong)} câu đúng</span>` +
+    (c.giai ? `<div class="alert alert-warning mt-3 mb-0"><i class="fa-solid fa-trophy me-1"></i>Chúc mừng! Bạn đạt <b>${esc(c.giai)}</b> (hạng ${esc(c.hang)})</div>` : '');
+  const box = $('mc-certs'); box.innerHTML = '';
+  show('section-mycert'); window.scrollTo(0, 0);
+  const safe = `${toAscii(c.hoTen).replace(/\s+/g, '_')}_${toAscii(c.lop)}`;
+  const jobs = [];
+  if (c.giai) {                                                   // người đạt giải: giấy giải thưởng + giấy tham gia
+    const award = c.giai.split(' - ')[0];
+    jobs.push(addCertCard(box, 'Giấy chứng nhận giải thưởng', {
+      name: c.hoTen, cls: c.lop, label: 'Chứng nhận thí sinh:', award,
+      qrText: `PL2026|${toAscii(c.ma)}|${toAscii(c.hoTen).slice(0, 24)}|${toAscii(c.lop)}|H${c.hang}`, fileName: `GiayChungNhan_Giai_${safe}.pdf` }));
+  }
+  jobs.push(addCertCard(box, 'Giấy chứng nhận tham gia', {
+    name: c.hoTen, cls: c.lop, label: 'Chứng nhận thí sinh:', line1: 'Đã tham gia cuộc thi Trực Tuyến', award: 'Đã tham gia',
+    qrText: `PL2026|${toAscii(c.ma)}|${toAscii(c.hoTen).slice(0, 24)}|${toAscii(c.lop)}|TG`, fileName: `GiayChungNhan_ThamGia_${safe}.pdf` }));
+  await Promise.all(jobs);
 }
