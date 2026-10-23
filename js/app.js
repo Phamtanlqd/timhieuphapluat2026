@@ -10,76 +10,91 @@ const draftKey = () => 'draft_' + session.hs.ma;
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const save = () => { try { localStorage.setItem(draftKey(), JSON.stringify({ layout, ans, du: duDoan })); } catch {} };
 
-/* ---------- Đăng nhập thông minh (Hỗ trợ xem kết quả & tải bằng cá nhân khi đã thi xong) ---------- */
+/* ---------- Đăng nhập thông minh (Hỗ trợ học sinh thi xong vào nhận Giấy chứng nhận) ---------- */
 $('form-login').onsubmit = async e => {
   e.preventDefault();
   const box = $('login-alert'), btn = $('btn-login'), old = btn.innerHTML;
   box.classList.add('d-none'); btn.disabled = true; btn.textContent = 'Đang kiểm tra...';
+  
   try {
+    // 1. Đăng nhập lấy thông tin tài khoản học sinh
     session = await api('login', { ma: $('login-code').value, mk: $('login-pass').value });
     
+    // 2. Kiểm tra nếu học sinh này đã thi xong từ trước (Backend ghi nhận hs.daNop hoặc hs.status)
+    if (session && session.hs && (session.hs.daNop || session.hs.daThi || session.hs.finished)) {
+      renderFinishedUserResult();
+      return;
+    }
+
+    // 3. Nếu chưa thi, tiến hành gọi start để vào thi
     try {
-      // 1. Thử vào bài thi
       const startData = await api('start', { token: session.token }, 3);
       begin(startData);
     } catch (startErr) {
       const msg = (startErr.message || '').toLowerCase();
-      // 2. Bắt tất cả thông báo thí sinh đã hoàn thành/thi xong hoặc khóa thi
+      // Nếu Backend chặn thi do đã hoàn thành/khóa thi -> Tự động chuyển sang màn hình nhận Giấy chứng nhận
       if (msg.includes('hoàn thành') || msg.includes('đã nộp') || msg.includes('kết thúc') || msg.includes('khóa') || msg.includes('thi lại')) {
-        const myRes = await api('my_result', { token: session.token }).catch(() => null);
-        document.body.classList.remove('in-exam');
-        
-        if (myRes) {
-          $('r-dung').textContent = myRes.soCauDung !== undefined ? myRes.soCauDung : '--';
-          $('r-tong').textContent = myRes.tong !== undefined ? myRes.tong : '30';
-          $('r-time').textContent = fmtTime(myRes.thoiGian || 0);
-        } else {
-          $('r-dung').textContent = 'Đã hoàn thành';
-          $('r-tong').textContent = '30';
-          $('r-time').textContent = '--';
-        }
-        
-        show('section-result');
-        
-        // Thêm nút tải giấy chứng nhận cá nhân trên thẻ kết quả
-        const resultCard = document.querySelector('#section-result .card-custom');
-        if (resultCard && !document.getElementById('btn-download-my-cert')) {
-          const certBtnDiv = document.createElement('div');
-          certBtnDiv.className = 'mt-3';
-          certBtnDiv.innerHTML = `<button class="btn btn-warning w-100 fw-bold py-2" id="btn-download-my-cert">
-            <i class="fa-solid fa-file-pdf me-2"></i>Tải Giấy Chứng Nhận Của Tôi
-          </button>`;
-          resultCard.appendChild(certBtnDiv);
-          
-          document.getElementById('btn-download-my-cert').onclick = async function() {
-            const btnSelf = this;
-            try {
-              const res = await api('my_result', { token: session.token }).catch(() => null);
-              const studentData = {
-                ma: session.hs.ma,
-                hoTen: session.hs.hoTen,
-                lop: session.hs.lop,
-                giai: (res && res.giai) ? res.giai : 'Chứng nhận tham gia cuộc thi'
-              };
-              printCertificate(studentData, btnSelf);
-            } catch (err) {
-              printCertificate({
-                ma: session.hs.ma,
-                hoTen: session.hs.hoTen,
-                lop: session.hs.lop,
-                giai: 'Chứng nhận tham gia cuộc thi'
-              }, btnSelf);
-            }
-          };
-        }
+        renderFinishedUserResult();
       } else {
         throw startErr;
       }
     }
   } catch (err) {
-    box.textContent = err.message; box.classList.remove('d-none');
-  } finally { btn.disabled = false; btn.innerHTML = old; }
+    box.textContent = err.message; 
+    box.classList.remove('d-none');
+  } finally { 
+    btn.disabled = false; 
+    btn.innerHTML = old; 
+  }
 };
+
+/* ---------- Hàm hiển thị màn hình kết quả & Tải giấy chứng nhận cho cá nhân ---------- */
+async function renderFinishedUserResult() {
+  document.body.classList.remove('in-exam');
+  
+  // Thử lấy kết quả thi chi tiết từ API my_result nếu có
+  const myRes = await api('my_result', { token: session.token }).catch(() => null);
+  
+  if (myRes) {
+    $('r-dung').textContent = myRes.soCauDung !== undefined ? myRes.soCauDung : '--';
+    $('r-tong').textContent = myRes.tong !== undefined ? myRes.tong : '30';
+    $('r-time').textContent = fmtTime(myRes.thoiGian || 0);
+  } else {
+    $('r-dung').textContent = 'Đã hoàn thành';
+    $('r-tong').textContent = '30';
+    $('r-time').textContent = '--';
+  }
+  
+  show('section-result');
+  
+  // Tạo nút Tải Giấy Chứng Nhận Của Tôi trên thẻ kết quả
+  const resultCard = document.querySelector('#section-result .card-custom');
+  if (resultCard) {
+    let certBtnDiv = document.getElementById('wrapper-download-my-cert');
+    if (!certBtnDiv) {
+      certBtnDiv = document.createElement('div');
+      certBtnDiv.id = 'wrapper-download-my-cert';
+      certBtnDiv.className = 'mt-3';
+      resultCard.appendChild(certBtnDiv);
+    }
+    
+    certBtnDiv.innerHTML = `<button class="btn btn-warning w-100 fw-bold py-2" id="btn-download-my-cert">
+      <i class="fa-solid fa-file-pdf me-2"></i>Tải Giấy Chứng Nhận Của Tôi
+    </button>`;
+    
+    document.getElementById('btn-download-my-cert').onclick = async function() {
+      const btnSelf = this;
+      const res = myRes || await api('my_result', { token: session.token }).catch(() => null);
+      const studentData = {
+        ma: session.hs ? session.hs.ma : '',
+        hoTen: session.hs ? session.hs.hoTen : '',
+        lop: session.hs ? session.hs.lop : '',
+        giai: (res && res.giai) ? res.giai : 'Chứng nhận tham gia cuộc thi'
+      };
+      printCertificate(studentData, btnSelf);
+    };
+  }
+}
 
 function begin(d) {
   questions = d.questions; phuText = d.phu; total = d.total;
@@ -263,7 +278,7 @@ async function triggerAppScriptRankings() {
   }
 }
 
-/* ---------- Thuật toán Canvas Direct-To-PDF của thầy ---------- */
+/* ---------- Thuật toán Canvas Direct-To-PDF sắc nét ---------- */
 const toAscii = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^\x20-\x7E]/g, '');
 const CERT_FONT = '"Be Vietnam Pro","Segoe UI",Roboto,Arial,sans-serif';
 
@@ -309,7 +324,7 @@ async function drawCertificate(c) {
   const rx = 770;
   x.fillStyle = '#111827'; x.textAlign = 'center';
   x.font = `400 16px ${CERT_FONT}`; x.fillText(CERT_DATE, rx, 548);
-  x.font = `800 18px ${CERT_FONT}`; x.fillText('TRƯỞNG BAN TỔ CHỨC', rx, 584);
+  x.font = `800 18px ${CERT_FONT}`; x.fillText('TRƯỜNG THPT CHUYÊN LÊ QUÝ ĐÔN', rx, 584);
   x.font = `700 16px ${CERT_FONT}`; x.fillText('(Đã ký)', rx, 626);
   return cv;
 }
