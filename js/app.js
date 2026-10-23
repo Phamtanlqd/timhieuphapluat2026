@@ -10,14 +10,71 @@ const draftKey = () => 'draft_' + session.hs.ma;
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const save = () => { try { localStorage.setItem(draftKey(), JSON.stringify({ layout, ans, du: duDoan })); } catch {} };
 
-/* ---------- Đăng nhập + bắt đầu thi ---------- */
+/* ---------- Đăng nhập thông minh (Cho phép vào xem kết quả & tải bằng cá nhân sau khi thi xong) ---------- */
 $('form-login').onsubmit = async e => {
   e.preventDefault();
   const box = $('login-alert'), btn = $('btn-login'), old = btn.innerHTML;
   box.classList.add('d-none'); btn.disabled = true; btn.textContent = 'Đang kiểm tra...';
   try {
     session = await api('login', { ma: $('login-code').value, mk: $('login-pass').value });
-    begin(await api('start', { token: session.token }, 3));
+    
+    try {
+      // 1. Thử vào bài thi
+      const startData = await api('start', { token: session.token }, 3);
+      begin(startData);
+    } catch (startErr) {
+      // 2. Nếu cuộc thi đã kết thúc/khóa hoặc bài đã nộp -> Chuyển sang giao diện nhận Bằng Cá Nhân
+      if (startErr.message && (startErr.message.includes('đã nộp') || startErr.message.includes('kết thúc') || startErr.message.includes('khóa'))) {
+        const myRes = await api('my_result', { token: session.token }).catch(() => null);
+        document.body.classList.remove('in-exam');
+        
+        if (myRes) {
+          $('r-dung').textContent = myRes.soCauDung !== undefined ? myRes.soCauDung : '--';
+          $('r-tong').textContent = myRes.tong !== undefined ? myRes.tong : '30';
+          $('r-time').textContent = fmtTime(myRes.thoiGian || 0);
+        } else {
+          $('r-dung').textContent = 'Đã nộp';
+          $('r-tong').textContent = '30';
+          $('r-time').textContent = '--';
+        }
+        
+        show('section-result');
+        
+        // Thêm nút tải giấy chứng nhận cá nhân trên thẻ kết quả
+        const resultCard = document.querySelector('#section-result .card-custom');
+        if (resultCard && !document.getElementById('btn-download-my-cert')) {
+          const certBtnDiv = document.createElement('div');
+          certBtnDiv.className = 'mt-3';
+          certBtnDiv.innerHTML = `<button class="btn btn-warning w-100 fw-bold py-2" id="btn-download-my-cert">
+            <i class="fa-solid fa-file-pdf me-2"></i>Tải Giấy Chứng Nhận Của Tôi
+          </button>`;
+          resultCard.appendChild(certBtnDiv);
+          
+          document.getElementById('btn-download-my-cert').onclick = async function() {
+            const btnSelf = this;
+            try {
+              const res = await api('my_result', { token: session.token }).catch(() => null);
+              const studentData = {
+                ma: session.hs.ma,
+                hoTen: session.hs.hoTen,
+                lop: session.hs.lop,
+                giai: (res && res.giai) ? res.giai : 'Chứng nhận tham gia cuộc thi'
+              };
+              printCertificate(studentData, btnSelf);
+            } catch (err) {
+              printCertificate({
+                ma: session.hs.ma,
+                hoTen: session.hs.hoTen,
+                lop: session.hs.lop,
+                giai: 'Chứng nhận tham gia cuộc thi'
+              }, btnSelf);
+            }
+          };
+        }
+      } else {
+        throw startErr;
+      }
+    }
   } catch (err) {
     box.textContent = err.message; box.classList.remove('d-none');
   } finally { btn.disabled = false; btn.innerHTML = old; }
@@ -169,7 +226,7 @@ async function loadRankings() {
       const dung = (r && r.dung !== undefined) ? r.dung : 0;
       const tg = (r && r.tg !== undefined) ? r.tg : 0;
       const du = (r && r.du !== undefined) ? r.du : 0;
-      const giai = r && r.giai ? r.giai : 'Chưa tính';
+      const giai = r && r.giai ? r.giai : 'Đã tham gia';
       const topClass = hang <= 3 ? 'top' + hang : '';
       const chipClass = hang <= 3 ? 'r' + hang : '';
 
@@ -177,7 +234,7 @@ async function loadRankings() {
         <td><span class="rank-chip ${chipClass}">${hang}</span></td>
         <td><b>${esc(ma)}</b></td><td>${esc(hoTen)}</td><td>${esc(lop)}</td>
         <td><b class="text-success">${dung}/30</b></td><td>${tg}s</td><td>${du}</td>
-        <td><span class="badge bg-warning text-dark fw-bold">${esc(giai)}</span></td>
+        <td><span class="badge ${r && r.giai ? 'bg-warning text-dark' : 'bg-secondary'} fw-bold">${esc(giai)}</span></td>
         <td><button class="btn btn-sm btn-outline-primary" data-i="${i}"><i class="fa-solid fa-file-pdf me-1"></i>Tải PDF</button></td></tr>`;
     }).join('');
 
@@ -205,17 +262,16 @@ async function triggerAppScriptRankings() {
   }
 }
 
-/* ---------- Xuất giấy chứng nhận PDF ---------- */
-// Không dùng html2pdf nữa (chụp DOM hay ra trang trắng). Giấy được VẼ trực tiếp lên canvas rồi đóng gói thành PDF 1 trang.
-// QR chỉ chứa chuỗi ngắn, không dấu: qrcodejs báo "code length overflow" với chuỗi dài / tiếng Việt có dấu.
+/* ---------- Thuật toán Canvas Direct-To-PDF của thầy ---------- */
 const toAscii = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^\x20-\x7E]/g, '');
 const CERT_FONT = '"Be Vietnam Pro","Segoe UI",Roboto,Arial,sans-serif';
 
-function certFit(ctx, text, weight, size, maxW) {          // thu nhỏ chữ nếu quá dài
+function certFit(ctx, text, weight, size, maxW) {
   let s = size;
   for (; s > 12; s--) { ctx.font = `${weight} ${s}px ${CERT_FONT}`; if (ctx.measureText(text).width <= maxW) break; }
   return s;
 }
+
 function certQr(text) {
   try {
     const d = document.createElement('div');
@@ -223,6 +279,7 @@ function certQr(text) {
     return d.querySelector('canvas') || d.querySelector('img');
   } catch (e) { console.warn('Không tạo được mã QR, vẫn xuất giấy không có QR:', e); return null; }
 }
+
 async function drawCertificate(c) {
   const W = 1000, H = 700, K = 2;
   const cv = document.createElement('canvas'); cv.width = W * K; cv.height = H * K;
@@ -237,7 +294,7 @@ async function drawCertificate(c) {
   line('GIẤY CHỨNG NHẬN', 180, 800, 42, '#dc3545');
   line(c.label || 'Chứng nhận thí sinh:', 236, 400, 18, '#111827');
   line(c.name || '', c.cls ? 300 : 316, 800, c.cls ? 40 : 44, '#0d6efd', 780);
-  if (c.cls) line('Lớp: ' + c.cls, 345, 700, 21, '#111827');   // giấy tập thể: tên đã có số lớp nên không in lặp
+  if (c.cls) line('Lớp: ' + c.cls, 345, 700, 21, '#111827');
   line('Đã đạt thành tích xuất sắc trong cuộc thi Trực Tuyến', 396, 400, 19, '#111827');
   line('“Tìm Hiểu Pháp Luật Năm 2026”', 430, 700, 22, '#111827');
   const aw = certFit(x, c.award || '', 800, 26, 640); x.font = `800 ${aw}px ${CERT_FONT}`;
@@ -251,11 +308,12 @@ async function drawCertificate(c) {
   const rx = 770;
   x.fillStyle = '#111827'; x.textAlign = 'center';
   x.font = `400 16px ${CERT_FONT}`; x.fillText(CERT_DATE, rx, 548);
-  x.font = `800 18px ${CERT_FONT}`; x.fillText('TRƯỞNG BAN TỔ CHỨC', rx, 584);
+  x.font = `800 18px ${CERT_FONT}`; x.fillText('TRƯỜNG THPT CHUYÊN LÊ QUÝ ĐÔN', rx, 584);
   x.font = `700 16px ${CERT_FONT}`; x.fillText('(Đã ký)', rx, 626);
   return cv;
 }
-function jpegToPdfBlob(jpeg, pxW, pxH, W, H) {                // PDF 1 trang (W x H điểm) chứa 1 ảnh JPEG, không cần thư viện
+
+function jpegToPdfBlob(jpeg, pxW, pxH, W, H) {
   const enc = new TextEncoder(), chunks = [], off = [];
   let len = 0;
   const push = b => { const u = typeof b === 'string' ? enc.encode(b) : b; chunks.push(u); len += u.length; };
@@ -271,11 +329,13 @@ function jpegToPdfBlob(jpeg, pxW, pxH, W, H) {                // PDF 1 trang (W 
   push(t + `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
   return new Blob(chunks, { type: 'application/pdf' });
 }
+
 function saveBlob(blob, name) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
 }
+
 async function exportCertificate(c, btn) {
   const oldText = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Đang tạo...'; }
@@ -285,16 +345,18 @@ async function exportCertificate(c, btn) {
     const b64 = cv.toDataURL('image/jpeg', 0.95).split(',')[1];
     const bin = atob(b64), jpeg = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) jpeg[i] = bin.charCodeAt(i);
-    saveBlob(jpegToPdfBlob(jpeg, cv.width, cv.height, 750, 525), c.fileName);   // 750x525 pt = 1000x700 px, khổ ngang
+    saveBlob(jpegToPdfBlob(jpeg, cv.width, cv.height, 750, 525), c.fileName);
   } catch (err) {
     alert('Có lỗi khi tạo PDF: ' + (err && err.message ? err.message : err));
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
   }
 }
+
 function printCertificate(r, btn) {
-  if (!r || !r.giai) { alert('Thí sinh này chưa có kết quả xếp giải! (Cần bấm "Khóa cuộc thi & trao giải" hoặc "Chốt lại giải thưởng" trong trang quản trị trước.)'); return; }
-  const award = r.giai.split(' - ')[0];
+  if (!r) return;
+  // Xử lý tự động: Có giải thì lấy tên giải, không có giải thì cấp "Chứng nhận tham gia"
+  const award = (r && r.giai) ? r.giai.split(' - ')[0] : 'Chứng nhận tham gia cuộc thi';
   exportCertificate({
     name: r.hoTen, cls: r.lop, label: 'Chứng nhận thí sinh:', award,
     qrText: `PL2026|${toAscii(r.ma)}|${toAscii(r.hoTen).slice(0, 24)}|${toAscii(r.lop)}|H${r.hang || ''}`,
