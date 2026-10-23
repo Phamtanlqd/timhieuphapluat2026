@@ -10,7 +10,7 @@ const draftKey = () => 'draft_' + session.hs.ma;
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const save = () => { try { localStorage.setItem(draftKey(), JSON.stringify({ layout, ans, du: duDoan })); } catch {} };
 
-/* ---------- Đăng nhập thông minh (Cho phép vào xem kết quả & tải bằng cá nhân sau khi thi xong) ---------- */
+/* ---------- Đăng nhập thông minh (Hỗ trợ xem kết quả & tải bằng cá nhân khi đã thi xong) ---------- */
 $('form-login').onsubmit = async e => {
   e.preventDefault();
   const box = $('login-alert'), btn = $('btn-login'), old = btn.innerHTML;
@@ -23,8 +23,9 @@ $('form-login').onsubmit = async e => {
       const startData = await api('start', { token: session.token }, 3);
       begin(startData);
     } catch (startErr) {
-      // 2. Nếu cuộc thi đã kết thúc/khóa hoặc bài đã nộp -> Chuyển sang giao diện nhận Bằng Cá Nhân
-      if (startErr.message && (startErr.message.includes('đã nộp') || startErr.message.includes('kết thúc') || startErr.message.includes('khóa'))) {
+      const msg = (startErr.message || '').toLowerCase();
+      // 2. Bắt tất cả thông báo thí sinh đã hoàn thành/thi xong hoặc khóa thi
+      if (msg.includes('hoàn thành') || msg.includes('đã nộp') || msg.includes('kết thúc') || msg.includes('khóa') || msg.includes('thi lại')) {
         const myRes = await api('my_result', { token: session.token }).catch(() => null);
         document.body.classList.remove('in-exam');
         
@@ -33,7 +34,7 @@ $('form-login').onsubmit = async e => {
           $('r-tong').textContent = myRes.tong !== undefined ? myRes.tong : '30';
           $('r-time').textContent = fmtTime(myRes.thoiGian || 0);
         } else {
-          $('r-dung').textContent = 'Đã nộp';
+          $('r-dung').textContent = 'Đã hoàn thành';
           $('r-tong').textContent = '30';
           $('r-time').textContent = '--';
         }
@@ -308,7 +309,7 @@ async function drawCertificate(c) {
   const rx = 770;
   x.fillStyle = '#111827'; x.textAlign = 'center';
   x.font = `400 16px ${CERT_FONT}`; x.fillText(CERT_DATE, rx, 548);
-  x.font = `800 18px ${CERT_FONT}`; x.fillText('TRƯỜNG THPT CHUYÊN LÊ QUÝ ĐÔN', rx, 584);
+  x.font = `800 18px ${CERT_FONT}`; x.fillText('TRƯỞNG BAN TỔ CHỨC', rx, 584);
   x.font = `700 16px ${CERT_FONT}`; x.fillText('(Đã ký)', rx, 626);
   return cv;
 }
@@ -355,11 +356,10 @@ async function exportCertificate(c, btn) {
 
 function printCertificate(r, btn) {
   if (!r) return;
-  // Xử lý tự động: Có giải thì lấy tên giải, không có giải thì cấp "Chứng nhận tham gia"
   const award = (r && r.giai) ? r.giai.split(' - ')[0] : 'Chứng nhận tham gia cuộc thi';
   exportCertificate({
     name: r.hoTen, cls: r.lop, label: 'Chứng nhận thí sinh:', award,
-    qrText: `PL2026|${toAscii(r.ma)}|${toAscii(r.hoTen).slice(0, 24)}|${toAscii(r.lop)}|H${r.hang || ''}`,
+    qrText: `PL2026|${toAscii(r.ma || '')}|${toAscii(r.hoTen || '').slice(0, 24)}|${toAscii(r.lop || '')}|H${r.hang || ''}`,
     fileName: `GiayChungNhan_${(r.hoTen || 'ThiSinh').replace(/\s+/g, '_')}_${r.lop || ''}.pdf`
   }, btn);
 }
