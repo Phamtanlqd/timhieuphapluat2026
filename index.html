@@ -145,6 +145,12 @@
 
         <div id="class-box" class="alert alert-warning d-none mb-3">
           <div id="class-winner" class="d-flex justify-content-between align-items-center flex-wrap gap-2 fw-bold"></div>
+          <div class="table-responsive mt-2">
+            <table class="table table-sm table-borderless mb-0 bg-transparent">
+              <thead><tr><th>Hạng</th><th>Lớp</th><th>Dự thi/Sĩ số</th><th>Tỷ lệ</th><th>TB câu đúng</th><th>TB thời gian</th></tr></thead>
+              <tbody id="class-body"></tbody>
+            </table>
+          </div>
         </div>
 
         <div class="small text-muted mb-2" id="rank-badge">Đang tải dữ liệu...</div>
@@ -160,6 +166,20 @@
             <tbody id="ranking-table-body"></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <!-- Section 5: Giấy chứng nhận của tôi (học sinh đã thi xong) -->
+    <section id="section-mycert" class="d-none">
+      <div class="card-custom p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h4 class="fw-bold text-primary mb-0"><i class="fa-solid fa-certificate text-warning me-2"></i>GIẤY CHỨNG NHẬN CỦA TÔI</h4>
+          <button class="btn btn-outline-secondary btn-sm" onclick="location.reload()"><i class="fa-solid fa-rotate-left me-1"></i>Quay Lại</button>
+        </div>
+        <h5 class="fw-bold mb-1" id="mc-name">---</h5>
+        <div class="text-muted mb-2" id="mc-class">---</div>
+        <div id="mc-result" class="mb-3"></div>
+        <div class="row g-3" id="mc-certs"></div>
       </div>
     </section>
 
