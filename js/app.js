@@ -42,7 +42,7 @@ function begin(d) {
   else { layout = shuffle(questions.map(q => ({ id: q.id, opts: shuffle(['A', 'B', 'C', 'D']) }))); ans = {}; duDoan = ''; save(); }
   endAt = Date.now() + d.remaining * 1000;      
   $('student-info-display').textContent = `${session.hs.hoTen} · ${session.hs.lop}`;
-  document.body.classList.add('in-exam');
+  document.body.classList.add('in-exam'); document.documentElement.style.overscrollBehaviorY = 'contain';
   show('section-exam'); active = true;
   try { renderNavGrid(); renderQuestion(0); }
   catch (err) { console.error(err); $('question-box').innerHTML = '<div class="alert alert-danger">Không hiển thị được câu hỏi (' + esc(err.message) + '). Vui lòng tải lại trang (F5) rồi đăng nhập lại - thời gian làm bài vẫn được giữ.</div>'; }
@@ -64,6 +64,24 @@ document.addEventListener('visibilitychange', () => {
   else { const w = $('tab-warn'); w.textContent = `CẢNH BÁO: Bạn đã rời khỏi màn hình làm bài ${tabCount} lần. Ban tổ chức có thể xem xét các trường hợp bất thường.`; w.classList.remove('d-none'); }
 });
 window.addEventListener('beforeunload', e => { if (active) { e.preventDefault(); e.returnValue = ''; } });
+
+
+/* ---------- Giao diện điện thoại ---------- */
+const isMobile = () => window.matchMedia ? window.matchMedia('(max-width: 991.98px)').matches : window.innerWidth < 992;
+function toggleSheet(open) { document.body.classList.toggle('sheet-open', !!open); }
+function mobileNext() { if (idx >= layout.length) confirmSubmit(); else nextQuestion(); }   // ở câu phụ, nút "Tiếp" thành "Nộp bài"
+function updateBar() {
+  const last = idx >= layout.length, done = Object.keys(ans).length;
+  $('m-pos').textContent = last ? 'Câu hỏi phụ' : `Câu ${idx + 1}/${layout.length}`;
+  $('m-done').textContent = `(đã làm ${done})`;
+  $('m-next-label').textContent = last ? 'Nộp bài' : 'Tiếp';
+  $('m-next-ico').className = 'ms-2 fa-solid ' + (last ? 'fa-paper-plane' : 'fa-arrow-right');
+  $('m-bar').querySelector('.m-prev').disabled = idx <= 0;
+  $('m-bar').querySelector('.m-next').classList.toggle('btn-gov', last);
+  $('m-bar').querySelector('.m-next').classList.toggle('btn-primary', !last);
+}
+function scrollToQuestion() { if (isMobile()) $('question-box').scrollIntoView({ block: 'start' }); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleSheet(false); });
 
 /* ---------- Hiển thị câu hỏi ---------- */
 const subOk = () => /^\d+$/.test(String(duDoan).trim());
@@ -88,22 +106,22 @@ function renderQuestion(i) {
     b.onclick = () => choose(i, o);
     card.appendChild(b);
   });
-  box.appendChild(card); renderNavGrid(); updateProgress();
+  box.appendChild(card); renderNavGrid(); updateProgress(); toggleSheet(false); scrollToQuestion();
 }
 function renderSubQuestion() {
   idx = layout.length; const box = $('question-box'); box.innerHTML = '';
   const card = el('div', 'question-card'), tag = el('div', 'q-tag sub'), h = el('h5', 'q-title'), inp = el('input', 'form-control form-control-lg'), hint = el('div', 'small text-muted mt-2');
   tag.innerHTML = '<i class="fa-solid fa-lightbulb me-1"></i>Câu hỏi phụ dự đoán'; h.textContent = phuText;
-  inp.type = 'number'; inp.min = 0; inp.step = 1; inp.value = duDoan; inp.placeholder = 'Nhập một số nguyên, ví dụ: 125'; inp.style.maxWidth = '320px';
+  inp.type = 'number'; inp.inputMode = 'numeric'; inp.min = 0; inp.step = 1; inp.value = duDoan; inp.placeholder = 'Nhập một số nguyên, ví dụ: 125'; inp.style.maxWidth = '320px';
   inp.oninput = () => { duDoan = inp.value; save(); renderNavGrid(); updateProgress(); };
   hint.textContent = 'Chỉ nhập số nguyên không âm. Bỏ trống sẽ được tính là 0.';
-  card.append(tag, h, inp, hint); box.appendChild(card); renderNavGrid(); updateProgress();
+  card.append(tag, h, inp, hint); box.appendChild(card); renderNavGrid(); updateProgress(); toggleSheet(false); scrollToQuestion();
 }
 const nextQuestion = () => idx < layout.length - 1 ? renderQuestion(idx + 1) : renderSubQuestion();
 const prevQuestion = () => { if (idx > 0) renderQuestion(idx - 1); };
 function updateProgress() {
   const done = Object.keys(ans).length + (subOk() ? 1 : 0), tot = layout.length + 1, pct = Math.round(done / tot * 100);
-  $('exam-progress-bar').style.width = pct + '%'; $('answered-text').textContent = done + '/' + tot; $('pct-text').textContent = pct + '%';
+  $('exam-progress-bar').style.width = pct + '%'; $('answered-text').textContent = done + '/' + tot; $('pct-text').textContent = pct + '%'; updateBar();
 }
 document.addEventListener('keydown', e => {
   if (!active || submitting || e.target.tagName === 'INPUT' || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -127,7 +145,7 @@ async function submitExam(auto) {
   for (;;) {
     try {
       const r = await api('submit', { token: session.token, answers: ans, duDoan: du, dev: deviceId(), tab: tabCount, scr: screen.width + 'x' + screen.height, ua: navigator.userAgent.slice(0, 160) }, 4);
-      active = false; document.body.classList.remove('in-exam'); try { localStorage.removeItem(draftKey()); } catch {}
+      active = false; toggleSheet(false); document.documentElement.style.overscrollBehaviorY = ''; document.body.classList.remove('in-exam'); try { localStorage.removeItem(draftKey()); } catch {}
       $('r-dung').textContent = r.soCauDung; $('r-tong').textContent = r.tong; $('r-time').textContent = fmtTime(r.thoiGian);
       show('section-result'); window.scrollTo(0, 0); return;
     } catch (e) {
