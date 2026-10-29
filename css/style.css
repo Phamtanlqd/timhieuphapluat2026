@@ -130,3 +130,47 @@ body.in-exam .header-banner h3{font-size:1rem;margin:0!important}
   .exam-top{padding:10px 12px;top:6px}.student-chip .avatar{flex-basis:36px;height:36px}
   .opt-btn{padding:12px}.opt-letter{flex-basis:34px;height:34px}
 }
+
+/* ================= Tối ưu điện thoại / máy tính bảng dọc ================= */
+html{-webkit-text-size-adjust:100%}
+button,.btn,.opt-btn,.nav-q-btn{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#question-box{scroll-margin-top:96px}
+/* Trên màn hình cảm ứng không dùng hiệu ứng hover (tránh "dính" màu sau khi chạm) */
+@media(hover:none){.opt-btn:not(.selected):hover{transform:none;box-shadow:none;background:#fff;border-color:var(--line)}.nav-q-btn:not(.done):hover{background:#fff;border-color:var(--line)}}
+
+.m-bar,.sheet-backdrop,.sheet-handle{display:none}
+@media(max-width:991.98px){
+  body.in-exam .header-banner{display:none}                 /* nhường chỗ cho câu hỏi: đồng hồ đã có ở thanh trên */
+  body.in-exam main{padding-top:6px!important;padding-bottom:calc(92px + env(safe-area-inset-bottom))!important}
+  .exam-top{top:calc(6px + env(safe-area-inset-top))}
+  .q-nav{display:none!important}                            /* đã có thanh điều hướng ở đáy */
+
+  .question-card{padding:18px 16px}
+  .q-title{font-size:1.12rem;line-height:1.6}
+  .opt-btn{min-height:60px;padding:12px 14px;font-size:1.04rem;line-height:1.45;gap:12px}
+  .opt-btn:active{background:#eff5ff;border-color:var(--blue)}
+  #question-box input.form-control{font-size:16px;min-height:52px;max-width:100%!important}   /* 16px: iOS không tự phóng to khi nhập */
+
+  /* Thanh điều hướng cố định ở đáy, vừa tầm ngón cái */
+  .m-bar{display:flex;gap:10px;align-items:center;position:fixed;left:0;right:0;bottom:0;z-index:40;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);backdrop-filter:blur(10px);
+    border-top:1px solid rgba(15,35,80,.1);box-shadow:0 -8px 24px rgba(15,35,80,.12)}
+  .m-bar .btn{min-height:50px;font-size:1rem}
+  .m-prev{flex:0 0 56px}
+  .m-list{flex:1;background:#eef4ff;border:2px solid #c7d7fb;color:var(--navy);font-weight:700;white-space:nowrap}
+  .m-next{flex:0 0 112px}
+
+  /* Danh sách câu hỏi: bảng kéo lên từ đáy */
+  .side-card#side-sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;max-height:82vh;overflow-y:auto;border-radius:22px 22px 0 0;
+    padding:8px 16px calc(18px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .25s ease;box-shadow:0 -14px 40px rgba(15,35,80,.28)}
+  body.sheet-open .side-card#side-sheet{transform:none}
+  .sheet-handle{display:flex;align-items:center;justify-content:center;position:relative;padding:8px 0 12px}
+  .sheet-handle span{width:44px;height:5px;border-radius:9px;background:#cbd5e1}
+  .sheet-handle .btn-close{position:absolute;right:0;top:2px}
+  .sheet-backdrop{display:block;position:fixed;inset:0;z-index:50;background:rgba(7,26,61,.45);opacity:0;pointer-events:none;transition:opacity .25s}
+  body.sheet-open .sheet-backdrop{opacity:1;pointer-events:auto}
+  body.sheet-open{overflow:hidden}
+  .nav-grid{grid-template-columns:repeat(6,1fr);gap:8px}
+  .nav-q-btn{font-size:1.02rem}
+}
+@media(max-width:360px){.m-next{flex-basis:96px}.m-list small{display:none}}
