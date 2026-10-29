@@ -1,7 +1,7 @@
 const $ = id => document.getElementById(id);
 const el = (t, c) => { const e = document.createElement(t); if (c) e.className = c; return e; };
 const SECTIONS = ['section-login', 'section-exam', 'section-result', 'section-rankings', 'section-mycert'];
-const show = id => SECTIONS.forEach(s => $(s).classList.toggle('d-none', s !== id));
+const show = id => SECTIONS.forEach(s => { const n = $(s); if (n) n.classList.toggle('d-none', s !== id); });   // bỏ qua section thiếu, tránh làm dừng cả luồng thi
 
 /* Mã thiết bị ngẫu nhiên (lưu trong trình duyệt) để ban tổ chức rà soát trường hợp một máy thi cho nhiều tài khoản */
 function deviceId() {
@@ -44,7 +44,9 @@ function begin(d) {
   $('student-info-display').textContent = `${session.hs.hoTen} · ${session.hs.lop}`;
   document.body.classList.add('in-exam');
   show('section-exam'); active = true;
-  renderNavGrid(); renderQuestion(0); tick(); timerId = setInterval(tick, 500);
+  try { renderNavGrid(); renderQuestion(0); }
+  catch (err) { console.error(err); $('question-box').innerHTML = '<div class="alert alert-danger">Không hiển thị được câu hỏi (' + esc(err.message) + '). Vui lòng tải lại trang (F5) rồi đăng nhập lại - thời gian làm bài vẫn được giữ.</div>'; }
+  tick(); timerId = setInterval(tick, 500);
 }
 
 function tick() {
